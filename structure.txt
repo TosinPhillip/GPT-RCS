@@ -1,0 +1,17 @@
+gpt-school-results/
+├── app.py
+├── config.py
+├── models/          # Pydantic-like schemas or MongoEngine if needed
+│   └── result.py
+├── routes/
+│   ├── admin.py
+│   └── student.py
+├── templates/       # Jinja2 HTML
+│   ├── base.html
+│   ├── admin/upload.html
+│   └── student/search.html
+├── static/
+│   ├── css/style.css  # Tailwind or custom sleek CSS
+│   └── js/main.js     # Smooth interactions (e.g., Fetch API)
+└── utils/
+    └── auth.py

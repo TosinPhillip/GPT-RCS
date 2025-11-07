@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-4xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Manage Teachers</h2>
+
+    <!-- Add new teacher -->
+    <form method="POST" class="mb-8 p-4 bg-gray-50 rounded-lg">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input type="text" name="username" placeholder="Username" required
+                   class="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+            <input type="password" name="password" placeholder="Password (min 6)" required
+                   class="p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        </div>
+        <button type="submit"
+                class="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+            Add Teacher
+        </button>
+    </form>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4">
+          {% for cat, msg in messages %}
+            <p class="p-2 rounded text-sm {{ 'bg-green-100 text-green-800' if cat == 'success' else 'bg-red-100 text-red-800' }}">
+              {{ msg }}
+            </p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- List existing teachers -->
+    <div class="space-y-3">
+        {% for t in teachers %}
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <span class="font-medium">{{ t.username }}</span>
+            <span class="text-sm text-gray-500">Created {{ t.created_at.strftime('%b %d, %Y') }}</span>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">No teachers yet.</p>
+        {% endfor %}
+    </div>
+
+    <div class="mt-6">
+        <a href="{{ url_for('admin.manage_subjects') }}" class="text-indigo-600 hover:underline">← Back to Subjects</a>
+    </div>
+</section>
+{% endblock %}

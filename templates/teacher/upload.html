@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Upload Results</h2>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <select id="session" class="p-3 border rounded-lg">
+            <option value="">-- Session --</option>
+            {% for s in sessions %}<option value="{{ s.name }}">{{ s.name }}</option>{% endfor %}
+        </select>
+        <select id="term" class="p-3 border rounded-lg">
+            <option value="">-- Term --</option>
+            {% for t in terms %}<option value="{{ t.name }}">{{ t.name }}</option>{% endfor %}
+        </select>
+        <select id="class" class="p-3 border rounded-lg">
+            <option value="">-- Class --</option>
+            {% for c in classes %}<option value="{{ c.name }}">{{ c.name }}</option>{% endfor %}
+        </select>
+        <select id="assessment" class="p-3 border rounded-lg">
+            <option value="">-- Assessment --</option>
+            <option value="CA1">CA 1</option>
+            <option value="CA2">CA 2</option>
+            <option value="Exam">Exam</option>
+        </select>
+    </div>
+
+    <div id="student-list" class="hidden mb-6">
+        <h3 class="font-semibold mb-2">Students in <span id="class-name"></span></h3>
+        <table class="w-full table-auto border">
+            <thead class="bg-gray-100">
+                <tr>
+                    <th class="p-2 text-left">Adm #</th>
+                    <th class="p-2 text-left">Name</th>
+                    <th class="p-2 text-left">Subject</th>
+                    <th class="p-2 text-left">Score</th>
+                </tr>
+            </thead>
+            <tbody id="score-rows"></tbody>
+        </table>
+    </div>
+
+    <button id="submit-btn" class="hidden w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+        Upload All Scores
+    </button>
+    <div id="result" class="mt-4"></div>
+</section>
+
+<script>
+const subjects = {{ subjects|tojson }};
+let students = [];
+
+function buildRows() {
+    const rows = document.getElementById('score-rows');
+    rows.innerHTML = '';
+    const assessment = document.getElementById('assessment').value;
+    if (!assessment) return;
+
+    students.forEach(stu => {
+        subjects.forEach(sub => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="p-2 border">${stu.admission_number}</td>
+                <td class="p-2 border">${stu.name}</td>
+                <td class="p-2 border">${sub.name}</td>
+                <td class="p-2 border">
+                    <input type="number" min="0" max="100" 
+                           data-adm="${stu.admission_number}" 
+                           data-sub="${sub.name}" 
+                           class="w-20 p-1 border rounded">
+                </td>
+            `;
+            rows.appendChild(row);
+        });
+    });
+    document.getElementById('submit-btn').classList.remove('hidden');
+}
+
+async function loadStudents() {
+    const session = document.getElementById('session').value;
+    const term = document.getElementById('term').value;
+    const cls = document.getElementById('class').value;
+    const assessment = document.getElementById('assessment').value;
+
+    if (!session || !term || !cls || !assessment) return;
+
+    const res = await fetch(`/teacher/api/students?class=${cls}`);
+    students = await res.json();
+
+    document.getElementById('class-name').textContent = cls;
+    document.getElementById('student-list').classList.remove('hidden');
+    buildRows();
+}
+
+// Bind change events
+['session','term','class','assessment'].forEach(id => {
+    document.getElementById(id).addEventListener('change', loadStudents);
+});
+
+document.getElementById('submit-btn').addEventListener('click', async () => {
+    const scores = [];
+    document.querySelectorAll('#score-rows input').forEach(inp => {
+        if (inp.value) {
+            scores.push({
+                adm_no: inp.dataset.adm,
+                subject: inp.dataset.sub,
+                score: inp.value
+            });
+        }
+    });
+
+    const payload = {
+        session: document.getElementById('session').value,
+        term: document.getElementById('term').value,
+        class: document.getElementById('class').value,
+        assessment: document.getElementById('assessment').value,
+        scores
+    };
+
+    const res = await fetch('/teacher/upload', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    const result = document.getElementById('result');
+    result.innerHTML = `<p class="${data.status==='success'?'text-green-600':'text-red-600'}">${data.status==='success'?'Uploaded!':data.error}</p>`;
+});
+</script>
+<script>
+const subjects = {{ subjects|tojson }};
+</script>
+{% endblock %}

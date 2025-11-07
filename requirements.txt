@@ -1,0 +1,6 @@
+Flask==3.0.3
+pymongo==4.8.0
+flask-pymongo==2.3.0
+dnspython==2.6.1  # For MongoDB SRV
+bcrypt==4.2.0     # For password hashing
+python-dotenv==1.0.0  # For loading .env files

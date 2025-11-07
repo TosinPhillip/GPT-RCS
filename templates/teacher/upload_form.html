@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-4 text-indigo-700">
+        {{ subject }} — {{ class_ }} ({{ session }})
+    </h2>
+
+    <div class="mb-6 flex gap-4">
+        <select id="term" class="p-3 border rounded-lg">
+            <option value="">-- Select Term --</option>
+            {% for t in terms %}
+            <option value="{{ t.name }}">{{ t.name }}</option>
+            {% endfor %}
+        </select>
+        <select id="assessment" class="p-3 border rounded-lg">
+            <option value="">-- Assessment --</option>
+            <option value="CA1">CA 1</option>
+            <option value="CA2">CA 2</option>
+            <option value="Exam">Exam</option>
+        </select>
+    </div>
+
+    <table class="w-full table-auto border" id="score-table" hidden>
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="p-2">Adm #</th>
+                <th class="p-2">Name</th>
+                <th class="p-2">Score</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr>
+                <td class="p-2 border">{{ s.admission_number }}</td>
+                <td class="p-2 border">{{ s.name }}</td>
+                <td class="p-2 border">
+                    <input type="number" min="0" max="100"
+                           data-adm="{{ s.admission_number }}"
+                           class="score-input w-20 p-1 border rounded">
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <button id="submit" class="mt-4 w-full py-3 bg-indigo-600 text-white rounded-lg hidden">
+        Upload Scores
+    </button>
+    <div id="result" class="mt-4"></div>
+</section>
+
+<script>
+document.getElementById('term').addEventListener('change', check);
+document.getElementById('assessment').addEventListener('change', check);
+
+function check() {
+    const term = document.getElementById('term').value;
+    const ass = document.getElementById('assessment').value;
+    if (term && ass) {
+        document.getElementById('score-table').hidden = false;
+        document.getElementById('submit').classList.remove('hidden');
+    }
+}
+
+document.getElementById('submit').addEventListener('click', async () => {
+    const scores = [];
+    document.querySelectorAll('.score-input').forEach(inp => {
+        if (inp.value) {
+            scores.push({
+                adm_no: inp.dataset.adm,
+                score: inp.value
+            });
+        }
+    });
+
+    const payload = {
+        session: "{{ session }}",
+        term: document.getElementById('term').value,
+        class: "{{ class_ }}",
+        subject: "{{ subject }}",
+        assessment: document.getElementById('assessment').value,
+        scores
+    };
+
+    const res = await fetch('/teacher/upload', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    document.getElementById('result').innerHTML = `
+        <p class="${data.status==='success'?'text-green-600':'text-red-600'}">
+            ${data.status==='success'?'Uploaded!':data.error}
+        </p>
+    `;
+});
+</script>
+{% endblock %}

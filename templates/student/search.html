@@ -1,0 +1,53 @@
+<!-- templates/student/search.html -->
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h1 class="text-3xl font-bold mb-6 text-center text-indigo-700">Access Your Results</h1>
+    <form id="searchForm" class="space-y-4">
+        <input type="text" 
+               name="admission_number" 
+               id="admission_number" 
+               placeholder="Admission Number (e.g. GPT/001)" 
+               required 
+               class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 transition">
+        <button type="submit" 
+                class="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+            Search
+        </button>
+    </form>
+    <div id="results" class="mt-6 space-y-4 opacity-0 transition-opacity duration-500"></div>
+</section>
+
+<script>
+document.getElementById('searchForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/', { 
+        method: 'POST', 
+        body: formData 
+    });
+    const data = await res.json();
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = '';
+    
+    if (data.error) {
+        resultsDiv.innerHTML = `<p class="text-red-600 text-center">${data.error}</p>`;
+    } else if (data.length === 0) {
+        resultsDiv.innerHTML = `<p class="text-gray-600 text-center">No results found.</p>`;
+    } else {
+        data.forEach(r => {
+            const card = document.createElement('div');
+            card.className = 'p-4 bg-gray-50 rounded-lg shadow-sm';
+            card.innerHTML = `
+                <h3 class="font-semibold text-indigo-700">${r.session} - ${r.term}</h3>
+                <ul class="mt-2 space-y-1">
+                    ${r.subjects.map(s => `<li>• <strong>${s.name}:</strong> ${s.score}</li>`).join('')}
+                </ul>
+            `;
+            resultsDiv.appendChild(card);
+        });
+    }
+    resultsDiv.classList.remove('opacity-0');
+});
+</script>
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Upload Students (CSV)</h2>
+    <form id="csvForm" enctype="multipart/form-data" class="space-y-6">
+        <div class="border-2 border-dashed border-indigo-300 rounded-lg p-8 text-center">
+            <input type="file" name="file" accept=".csv" required 
+                   class="hidden" id="fileInput">
+            <label for="fileInput" class="cursor-pointer">
+                <p class="text-lg text-indigo-600">Drop CSV here or click to upload</p>
+                <p class="text-sm text-gray-500 mt-2">Required: admission_number, name, class</p>
+            </label>
+        </div>
+        <button type="submit" 
+                class="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+            Upload Students
+        </button>
+    </form>
+
+    <div id="result" class="mt-6"></div>
+</section>
+
+<script>
+document.getElementById('csvForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const res = await fetch('/admin/upload-students', {
+        method: 'POST',
+        body: formData
+    });
+    const data = await res.json();
+    const result = document.getElementById('result');
+    result.innerHTML = `
+        <div class="p-4 rounded-lg ${data.status === 'success' ? 'bg-green-50 text-green-800' : 'bg-red-50 text-red-800'}">
+            <p class="font-semibold">${data.message}</p>
+            ${data.errors ? '<ul class="mt-2 text-sm">' + data.errors.map(e => `<li>• ${e}</li>`).join('') + '</ul>' : ''}
+        </div>
+    `;
+});
+
+// Drag & Drop
+const dropZone = document.querySelector('.border-dashed');
+['dragover', 'dragenter'].forEach(evt => {
+    dropZone.addEventListener(evt, (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-indigo-600', 'bg-indigo-50');
+    });
+});
+['dragleave', 'dragend'].forEach(evt => {
+    dropZone.addEventListener(evt, () => {
+        dropZone.classList.remove('border-indigo-600', 'bg-indigo-50');
+    });
+});
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('border-indigo-600', 'bg-indigo-50');
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) {
+        const input = document.getElementById('fileInput');
+        input.files = e.dataTransfer.files;
+        document.querySelector('label[for="fileInput"] p').textContent = file.name;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-md mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-center text-indigo-700">Teacher Login</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for cat, msg in messages %}
+          <p class="text-sm p-2 rounded mb-4 {{ 'bg-red-100 text-red-800' if cat == 'error' else 'bg-green-100 text-green-800' }}">{{ msg }}</p>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    <form method="POST" class="space-y-4">
+        <input type="text" name="username" placeholder="Username" required class="w-full p-3 border rounded-lg">
+        <input type="password" name="password" placeholder="Password" required class="w-full p-3 border rounded-lg">
+        <button type="submit" class="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+            Login
+        </button>
+    </form>
+</section>
+{% endblock %}

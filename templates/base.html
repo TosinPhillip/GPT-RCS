@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GPT School Results</title>
+    <script src="https://cdn.tailwindcss.com"></script> <!-- Sleek, no build step -->
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body class="bg-gradient-to-br from-indigo-50 to-white min-h-screen">
+    <nav class="bg-indigo-700 text-white p-4 shadow-md">
+        <div class="max-w-6xl mx-auto flex justify-between">
+            <a href="/" class="text-xl font-bold">God's Peculiar Treasure School</a>
+            <a href="/admin" class="hover:underline">Admin</a>
+        </div>
+        <div class="flex gap-4">
+            <a href="/" class="hover:underline">Student Search</a>
+            <a href="/admin/subjects" class="hover:underline">Subjects</a>
+            <a href="/admin/upload-students" class="hover:underline">Students</a>
+            <a href="/admin/teachers" class="hover:underline">Teachers</a>
+        </div>
+    </nav>
+    <main class="container mx-auto mt-8 px-4">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

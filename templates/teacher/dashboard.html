@@ -1,0 +1,28 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-4xl mx-auto p-6">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Welcome, {{ session.username }}</h2>
+
+    <div class="space-y-6">
+        {% for sess in sessions %}
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="font-semibold text-lg text-indigo-600 mb-3">{{ sess.name }}</h3>
+            {% if session_map[sess.name] %}
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {% for item in session_map[sess.name] %}
+                <a href="{{ url_for('teacher.upload_form', session=sess.name, class=item.class, subject=item.subject) }}"
+                   class="block p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center transition">
+                    {{ item.subject }} — {{ item.class }}
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 italic">No assignments for this session.</p>
+            {% endif %}
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center">No sessions available.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

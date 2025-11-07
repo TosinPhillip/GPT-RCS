@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-2xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Manage Subjects</h2>
+    
+    <form method="POST" class="flex gap-2 mb-6">
+        <input type="text" name="name" placeholder="e.g., Mathematics" required
+               class="flex-1 p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500">
+        <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition">
+            Add Subject
+        </button>
+    </form>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="mb-4">
+          {% for category, message in messages %}
+            <p class="text-sm p-2 rounded ${category === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+              {{ message }}
+            </p>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="space-y-2">
+        {% for subj in subjects %}
+        <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+            <span class="font-medium">{{ subj.name }}</span>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center py-8">No subjects yet. Add one above.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}
