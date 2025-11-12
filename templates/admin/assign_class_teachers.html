@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Assign Class Teachers</h2>
+
+    <form method="POST" class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-4 bg-gray-50 rounded-lg">
+        <select name="teacher_id" required class="p-3 border rounded-lg">
+            <option value="">-- Teacher --</option>
+            {% for t in teachers %}
+            <option value="{{ t._id }}">{{ t.username }}</option>
+            {% endfor %}
+        </select>
+        <select name="session" required class="p-3 border rounded-lg">
+            <option value="">-- Session --</option>
+            {% for s in sessions %}
+            <option>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+        <select name="class" required class="p-3 border rounded-lg">
+            <option value="">-- Class --</option>
+            {% for c in classes %}
+            <option>{{ c.name }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="md:col-span-3 mt-2 px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+            Assign
+        </button>
+    </form>
+
+    <div class="space-y-2">
+        {% for a in assignments %}
+        <div class="p-3 bg-gray-50 rounded-lg flex justify-between">
+            <span><strong>{{ a.teacher.username }}</strong>: {{ a.class }} ({{ a.session }})</span>
+        </div>
+        {% else %}
+        <p class="text-gray-500 text-center">No class teacher assignments yet.</p>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

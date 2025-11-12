@@ -38,17 +38,11 @@ def logout():
 @teacher_required
 def dashboard():
     teacher_id = ObjectId(session['user_id'])
-
-    # Get active sessions
     sessions = list(mongo.sessions.find({}, {'name': 1, '_id': 0}))
-
-    # Get assignments for this teacher
     assignments = list(mongo.teacher_assignments.find(
         {'teacher_id': teacher_id},
-        {'session': 1, 'class': 1, 'subject': 1}
+        {'session': 1, 'class': 1, 'subject': 1, '_id': 0}
     ))
-
-    # Group by session
     session_map = {}
     for a in assignments:
         sess = a['session']
@@ -56,10 +50,17 @@ def dashboard():
             session_map[sess] = []
         session_map[sess].append({'class': a['class'], 'subject': a['subject']})
 
+    # Add class teacher assignments
+    class_assignments = list(mongo.class_teachers.find(
+        {'teacher_id': teacher_id},
+        {'session': 1, 'class': 1, '_id': 0}
+    ))
+
     return render_template(
         'teacher/dashboard.html',
         sessions=sessions,
-        session_map=session_map
+        session_map=session_map,
+        class_assignments=class_assignments
     )
 
 # ==================== UPLOAD RESULT ====================
@@ -108,3 +109,42 @@ def upload_form(session, class_, subject):
         students=students,
         terms=terms
     )
+    
+    
+@teacher_bp.route('/class_teacher/<session>/<class_>')
+@teacher_required
+def class_teacher_form(session, class_):
+    teacher_id = ObjectId(session['user_id'])
+    if not mongo.class_teachers.find_one({'teacher_id': teacher_id, 'session': session, 'class': class_}):
+        flash('Not assigned as class teacher', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    students = list(mongo.students.find({'class': class_}, {'admission_number': 1, 'name': 1, '_id': 0}).sort('name'))
+    terms = list(mongo.terms.find({}, {'name': 1, '_id': 0}).sort('order'))
+
+    return render_template('teacher/class_teacher.html', session=session, class_=class_, students=students, terms=terms)
+
+@teacher_bp.route('/class_teacher/update', methods=['POST'])
+@teacher_required
+def class_teacher_update():
+    data = request.get_json()
+    session_name = data['session']
+    class_name = data['class']
+    term = data['term']
+    updates = data['updates']  # [{adm_no, comment, attendance, psychomotor}]
+
+    for u in updates:
+        student = mongo.students.find_one({'admission_number': u['adm_no']})
+        if not student:
+            continue
+        mongo.results.update_one(
+            {'student_id': student['_id'], 'session': session_name, 'term': term},
+            {'$set': {
+                'teacher_comment': u['comment'],
+                'attendance': u['attendance'],
+                'psychomotor': u['psychomotor']
+            }},
+            upsert=True
+        )
+
+    return jsonify({'status': 'success'})

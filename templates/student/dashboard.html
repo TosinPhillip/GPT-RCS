@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <div class="flex items-center mb-6">
+        <img src="{{ student.photo_url or '/static/images/default_student.jpg' }}" 
+             class="w-24 h-24 rounded-full mr-4 object-cover">
+        <div>
+            <h2 class="text-2xl font-bold text-indigo-700">{{ student.name }}</h2>
+            <p class="text-gray-600">Admission: {{ student.admission_number }}</p>
+            <p class="text-gray-600">Class: {{ student.class }}</p>
+        </div>
+    </div>
+
+    <div class="mb-6 flex gap-4">
+        <select id="session" class="p-3 border rounded-lg">
+            <option value="">-- Session --</option>
+            {% for s in sessions %}
+            <option>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+        <select id="term" class="p-3 border rounded-lg">
+            <option value="">-- Term --</option>
+            {% for t in terms %}
+            <option>{{ t.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div id="results" class="space-y-4"></div>
+</section>
+
+<script>
+async function loadResults() {
+    const session = document.getElementById('session').value;
+    const term = document.getElementById('term').value;
+    if (!session || !term) return;
+
+    const res = await fetch(`/student/results?session=${session}&term=${term}`);
+    const data = await res.json();
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = '';
+
+    if (data.error) {
+        resultsDiv.innerHTML = `<p class="text-red-600">${data.error}</p>`;
+    } else if (!data.results.length) {
+        resultsDiv.innerHTML = `<p class="text-gray-500">No results found.</p>`;
+    } else {
+        const r = data.results[0];
+        resultsDiv.innerHTML = `
+            <div class="p-4 bg-gray-50 rounded-lg">
+                <h3 class="font-semibold text-indigo-600">${r.session} - ${r.term}</h3>
+                <table class="w-full mt-2 border">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="p-2">Subject</th>
+                            <th class="p-2">CA1</th>
+                            <th class="p-2">CA2</th>
+                            <th class="p-2">Exam</th>
+                            <th class="p-2">Total</th>
+                            <th class="p-2">Grade</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${r.subjects.map(s => `
+                            <tr>
+                                <td class="p-2 border">${s.name}</td>
+                                <td class="p-2 border">${s.score_CA1 || '-'}</td>
+                                <td class="p-2 border">${s.score_CA2 || '-'}</td>
+                                <td class="p-2 border">${s.score_Exam || '-'}</td>
+                                <td class="p-2 border">${(s.score_CA1 || 0) + (s.score_CA2 || 0) + (s.score_Exam || 0)}</td>
+                                <td class="p-2 border">${getGrade((s.score_CA1 || 0) + (s.score_CA2 || 0) + (s.score_Exam || 0))}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <p class="mt-4"><strong>Position:</strong> ${r.position || 'N/A'}</p>
+                <p><strong>Attendance:</strong> ${r.attendance || 'N/A'}</p>
+                <p><strong>Class Teacher Comment:</strong> ${r.teacher_comment || 'N/A'}</p>
+                <p><strong>Principal Comment:</strong> ${r.principal_comment || 'N/A'}</p>
+                <p><strong>Psychomotor:</strong> ${r.psychomotor || 'N/A'}</p>
+            </div>
+        `;
+    }
+}
+
+function getGrade(total) {
+    if (total >= 80) return 'A';
+    if (total >= 70) return 'B';
+    if (total >= 60) return 'C';
+    if (total >= 50) return 'D';
+    return 'F';
+}
+
+document.getElementById('session').addEventListener('change', loadResults);
+document.getElementById('term').addEventListener('change', loadResults);
+loadResults();
+</script>
+{% endblock %}

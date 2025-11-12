@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
+    <h2 class="text-2xl font-bold mb-4 text-indigo-700">{{ class_ }} — {{ session }}</h2>
+    <select id="term" class="p-3 border rounded-lg mb-4">
+        <option value="">-- Select Term --</option>
+        {% for t in terms %}
+        <option>{{ t.name }}</option>
+        {% endfor %}
+    </select>
+
+    <table class="w-full table-auto border" id="table" hidden>
+        <thead class="bg-gray-100">
+            <tr>
+                <th class="p-2">Adm #</th>
+                <th class="p-2">Name</th>
+                <th class="p-2">Comment</th>
+                <th class="p-2">Attendance (%)</th>
+                <th class="p-2">Psychomotor</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in students %}
+            <tr>
+                <td class="p-2 border">{{ s.admission_number }}</td>
+                <td class="p-2 border">{{ s.name }}</td>
+                <td class="p-2 border">
+                    <textarea class="w-full p-1 border rounded" data-adm="{{ s.admission_number }}"></textarea>
+                </td>
+                <td class="p-2 border">
+                    <input type="number" min="0" max="100" class="w-20 p-1 border rounded" data-adm="{{ s.admission_number }}">
+                </td>
+                <td class="p-2 border">
+                    <textarea class="w-full p-1 border rounded" data-adm="{{ s.admission_number }}"></textarea>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <button id="submit" class="mt-4 w-full py-3 bg-indigo-600 text-white rounded-lg hidden">
+        Save Comments
+    </button>
+    <div id="result" class="mt-4"></div>
+</section>
+
+<script>
+document.getElementById('term').addEventListener('change', () => {
+    document.getElementById('table').hidden = false;
+    document.getElementById('submit').classList.remove('hidden');
+});
+
+document.getElementById('submit').addEventListener('click', async () => {
+    const updates = [];
+    document.querySelectorAll('#table tr').forEach(row => {
+        const adm = row.querySelector('textarea').dataset.adm;
+        updates.push({
+            adm_no: adm,
+            comment: row.querySelector('textarea:nth-child(1)').value,
+            attendance: row.querySelector('input').value,
+            psychomotor: row.querySelector('textarea:nth-child(2)').value
+        });
+    });
+
+    const res = await fetch('/teacher/class_teacher/update', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            session: "{{ session }}",
+            class: "{{ class_ }}",
+            term: document.getElementById('term').value,
+            updates
+        })
+    });
+    const data = await res.json();
+    document.getElementById('result').innerHTML = `
+        <p class="${data.status === 'success' ? 'text-green-600' : 'text-red-600'}">
+            ${data.status === 'success' ? 'Saved!' : data.error}
+        </p>
+    `;
+});
+</script>
+{% endblock %}

@@ -8,6 +8,7 @@ import csv
 from datetime import datetime
 from io import StringIO
 from flask import request, jsonify
+from bson import ObjectId
 
 
 admin_bp = Blueprint('admin', __name__)
@@ -138,10 +139,13 @@ def upload_students():
                     errors.append(f"Row {i}: Duplicate admission number {adm_no}")
                     continue
 
+                password = row.get('password', 'default123')  # Default or require in CSV
+                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
                 mongo.students.insert_one({
                     'admission_number': adm_no,
                     'name': name,
                     'class': cls,
+                    'password': hashed.decode('utf-8'),
                     'created_at': datetime.utcnow()
                 })
                 inserted += 1
@@ -249,5 +253,53 @@ def assign_teachers():
         sessions=sessions,
         classes=classes,
         subjects=subjects,
+        assignments=assignments
+    )
+    
+# routes/admin.py
+@admin_bp.route('/dashboard')
+@admin_required
+def dashboard():
+    return render_template('admin/dashboard.html')
+
+
+@admin_bp.route('/assign_class_teachers', methods=['GET', 'POST'])
+@admin_required
+def assign_class_teachers():
+    teachers = list(mongo.users.find({'role': 'teacher'}, {'username': 1}))
+    sessions = list(mongo.sessions.find({}, {'name': 1, '_id': 0}))
+    classes = list(mongo.classes.find({}, {'name': 1, '_id': 0}))
+
+    if request.method == 'POST':
+        teacher_id = request.form['teacher_id']
+        session_name = request.form['session']
+        class_name = request.form['class']
+        existing = mongo.class_teachers.find_one({
+            'session': session_name,
+            'class': class_name
+        })
+        if existing:
+            flash('Class already assigned for this session', 'error')
+        else:
+            mongo.class_teachers.insert_one({
+                'teacher_id': ObjectId(teacher_id),
+                'session': session_name,
+                'class': class_name,
+                'assigned_at': datetime.utcnow()
+            })
+            flash('Class teacher assigned', 'success')
+        return redirect(url_for('admin.assign_class_teachers'))
+
+    assignments = list(mongo.class_teachers.aggregate([
+        {"$lookup": {"from": "users", "localField": "teacher_id", "foreignField": "_id", "as": "teacher"}},
+        {"$unwind": "$teacher"},
+        {"$project": {"teacher.username": 1, "session": 1, "class": 1}}
+    ]))
+
+    return render_template(
+        'admin/assign_class_teachers.html',
+        teachers=teachers,
+        sessions=sessions,
+        classes=classes,
         assignments=assignments
     )
