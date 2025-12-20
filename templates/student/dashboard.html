@@ -1,98 +1,151 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% block content %}
-<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-    <div class="flex items-center mb-6">
-        <img src="{{ student.photo_url or '/static/images/default_student.jpg' }}" 
-             class="w-24 h-24 rounded-full mr-4 object-cover">
-        <div>
-            <h2 class="text-2xl font-bold text-indigo-700">{{ student.name }}</h2>
-            <p class="text-gray-600">Admission: {{ student.admission_number }}</p>
-            <p class="text-gray-600">Class: {{ student.class }}</p>
+
+<div class="max-w-5xl mx-auto mt-12">
+    <!-- Welcome Header -->
+    <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white rounded-2xl shadow-2xl p-10 text-center mb-12">
+        <h1 class="text-4xl font-bold mb-4">
+            Welcome back, <span class="text-yellow-300">{{ student.name }}</span>!
+        </h1>
+        <p class="text-xl opacity-90">
+            Admission Number: <span class="font-semibold">{{ student.admission_number }}</span> 
+            • Class: <span class="font-semibold">{{ student.class }}</span>
+        </p>
+    </div>
+
+    <!-- Result Selector Card -->
+    <div class="bg-white rounded-2xl shadow-xl p-8 mb-10">
+        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">View Your Results</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto">
+            <div>
+                <label for="session-select" class="block text-lg font-medium text-gray-700 mb-3">
+                    Academic Session
+                </label>
+                <select id="session-select" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 transition">
+                    <option value="">Select Session</option>
+                    {% for session in sessions %}
+                        <option value="{{ session.name }}">{{ session.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div>
+                <label for="term-select" class="block text-lg font-medium text-gray-700 mb-3">
+                    Term
+                </label>
+                <select id="term-select" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 transition">
+                    <option value="">Select Term</option>
+                    {% for term in terms %}
+                        <option value="{{ term.name }}">{{ term.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="text-center mt-10">
+            <button id="view-result-btn" 
+                    class="px-10 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl transition shadow-lg focus:outline-none focus:ring-4 focus:ring-indigo-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled>
+                Load Results
+            </button>
         </div>
     </div>
 
-    <div class="mb-6 flex gap-4">
-        <select id="session" class="p-3 border rounded-lg">
-            <option value="">-- Session --</option>
-            {% for s in sessions %}
-            <option>{{ s.name }}</option>
-            {% endfor %}
-        </select>
-        <select id="term" class="p-3 border rounded-lg">
-            <option value="">-- Term --</option>
-            {% for t in terms %}
-            <option>{{ t.name }}</option>
-            {% endfor %}
-        </select>
+    <!-- Results Display Area -->
+    <div id="results-container" class="hidden bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-8 text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+            <p class="mt-4 text-lg text-gray-600">Loading your results...</p>
+           
+        </div>
+               
     </div>
-
-    <div id="results" class="space-y-4"></div>
-</section>
+    
+</div>
 
 <script>
-async function loadResults() {
-    const session = document.getElementById('session').value;
-    const term = document.getElementById('term').value;
-    if (!session || !term) return;
+    const sessionSelect = document.getElementById('session-select');
+    const termSelect = document.getElementById('term-select');
+    const viewBtn = document.getElementById('view-result-btn');
+    const resultsContainer = document.getElementById('results-container');
 
-    const res = await fetch(`/student/results?session=${session}&term=${term}`);
-    const data = await res.json();
-    const resultsDiv = document.getElementById('results');
-    resultsDiv.innerHTML = '';
+    function updateButtonState() {
+        viewBtn.disabled = !(sessionSelect.value && termSelect.value);
+    }
 
-    if (data.error) {
-        resultsDiv.innerHTML = `<p class="text-red-600">${data.error}</p>`;
-    } else if (!data.results.length) {
-        resultsDiv.innerHTML = `<p class="text-gray-500">No results found.</p>`;
-    } else {
-        const r = data.results[0];
-        resultsDiv.innerHTML = `
-            <div class="p-4 bg-gray-50 rounded-lg">
-                <h3 class="font-semibold text-indigo-600">${r.session} - ${r.term}</h3>
-                <table class="w-full mt-2 border">
-                    <thead class="bg-gray-100">
-                        <tr>
-                            <th class="p-2">Subject</th>
-                            <th class="p-2">CA1</th>
-                            <th class="p-2">CA2</th>
-                            <th class="p-2">Exam</th>
-                            <th class="p-2">Total</th>
-                            <th class="p-2">Grade</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${r.subjects.map(s => `
-                            <tr>
-                                <td class="p-2 border">${s.name}</td>
-                                <td class="p-2 border">${s.score_CA1 || '-'}</td>
-                                <td class="p-2 border">${s.score_CA2 || '-'}</td>
-                                <td class="p-2 border">${s.score_Exam || '-'}</td>
-                                <td class="p-2 border">${(s.score_CA1 || 0) + (s.score_CA2 || 0) + (s.score_Exam || 0)}</td>
-                                <td class="p-2 border">${getGrade((s.score_CA1 || 0) + (s.score_CA2 || 0) + (s.score_Exam || 0))}</td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-                <p class="mt-4"><strong>Position:</strong> ${r.position || 'N/A'}</p>
-                <p><strong>Attendance:</strong> ${r.attendance || 'N/A'}</p>
-                <p><strong>Class Teacher Comment:</strong> ${r.teacher_comment || 'N/A'}</p>
-                <p><strong>Principal Comment:</strong> ${r.principal_comment || 'N/A'}</p>
-                <p><strong>Psychomotor:</strong> ${r.psychomotor || 'N/A'}</p>
+    sessionSelect.addEventListener('change', updateButtonState);
+    termSelect.addEventListener('change', updateButtonState);
+
+    viewBtn.addEventListener('click', async () => {
+        const session = sessionSelect.value;
+        const term = termSelect.value;
+
+        resultsContainer.innerHTML = `
+            <div class="p-8 text-center">
+                <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-indigo-600 border-t-transparent"></div>
+                <p class="mt-4 text-lg text-gray-600">Loading your results...</p>
             </div>
         `;
-    }
-}
+        resultsContainer.classList.remove('hidden');
 
-function getGrade(total) {
-    if (total >= 80) return 'A';
-    if (total >= 70) return 'B';
-    if (total >= 60) return 'C';
-    if (total >= 50) return 'D';
-    return 'F';
-}
+        try {
+            const response = await fetch(`/results?session=${session}&term=${term}`);
+            const data = await response.json();
 
-document.getElementById('session').addEventListener('change', loadResults);
-document.getElementById('term').addEventListener('change', loadResults);
-loadResults();
+            if (data.results && data.results.length > 0) {
+                const result = data.results[0];
+                const position = result.position ? `${result.position}${['st','nd','rd'][((result.position%100-10)%10)||result.position%10] || 'th'}` : 'N/A';
+
+                let subjectsHtml = '<table class="w-full text-left border-collapse"><thead><tr class="bg-indigo-100"><th class="p-4">Subject</th><th class="p-4 text-center">CA1</th><th class="p-4 text-center">CA2</th><th class="p-4 text-center">Exam</th><th class="p-4 text-center">Total</th></tr></thead><tbody>';
+
+                let grandTotal = 0;
+                result.subjects.forEach(sub => {
+                    const total = (sub.score_CA1 || 0) + (sub.score_CA2 || 0) + (sub.score_Exam || 0);
+                    grandTotal += total;
+                    subjectsHtml += `<tr class="border-b"><td class="p-4 font-medium">${sub.subject}</td><td class="p-4 text-center">${sub.score_CA1 || '-'}</td><td class="p-4 text-center">${sub.score_CA2 || '-'}</td><td class="p-4 text-center">${sub.score_Exam || '-'}</td><td class="p-4 text-center font-bold text-indigo-700">${total}</td></tr>`;
+                });
+
+                const average = (grandTotal / result.subjects.length).toFixed(2);
+
+                subjectsHtml += `</tbody></table>`;
+
+                resultsContainer.innerHTML = `
+                    <div class="bg-gradient-to-r from-green-50 to-indigo-50 p-8 border-b-4 border-indigo-600">
+                        <h3 class="text-2xl font-bold text-center text-indigo-900">Result Summary</h3>
+                        <div class="grid grid-cols-3 gap-6 mt-6 text-center">
+                            <div><p class="text-gray-600">Total Score</p><p class="text-3xl font-bold text-indigo-700">${grandTotal}</p></div>
+                            <div><p class="text-gray-600">Average</p><p class="text-3xl font-bold text-indigo-700">${average}</p></div>
+                            <div><p class="text-gray-600">Class Position</p><p class="text-3xl font-bold text-indigo-700">${position}</p></div>
+                        </div>
+                    </div>
+                    <div class="p-8">
+                        <h4 class="text-xl font-bold text-gray-800 mb-6">Subject Details</h4>
+                        ${subjectsHtml}
+                    </div>
+                    <div class="p-8 text-center">
+                        <button onclick="window.print()" class="px-6 py-3 bg-indigo-700 text-white rounded-lg hover:bg-indigo-600 transition">
+                            🖨️ Print / Save as PDF
+                        </button>
+                    </div>
+                `;
+            } else {
+                resultsContainer.innerHTML = `
+                    <div class="p-12 text-center">
+                        <p class="text-xl text-gray-600">No results found for ${term}, ${session}</p>
+                        <p class="mt-4 text-gray-500">Contact the school if you believe this is an error.</p>
+                    </div>
+                `;
+            }
+        } catch (err) {
+            resultsContainer.innerHTML = `
+                <div class="p-12 text-center text-red-600">
+                    <p class="text-xl font-bold">Error loading results</p>
+                    <p>Please try again later.</p>
+                </div>
+            `;
+        }
+    });
 </script>
+
 {% endblock %}

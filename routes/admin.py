@@ -25,7 +25,7 @@ def login():
 
         if username == ADMIN_USERNAME and bcrypt.checkpw(password, ADMIN_PASSWORD_HASH.encode('utf-8')):
             session['admin_logged_in'] = True
-            return redirect(url_for('admin.upload'))
+            return redirect(url_for('admin.dashboard'))
         else:
             flash('Invalid credentials', 'error')
 
@@ -116,47 +116,81 @@ def upload_students():
         file = request.files['file']
         if file.filename == '':
             return jsonify({'error': 'No file selected'}), 400
-        if not file.filename.endswith('.csv'):
-            return jsonify({'error': 'CSV file required'}), 400
+        if not file.filename.lower().endswith('.csv'):
+            return jsonify({'error': 'Only CSV files are allowed'}), 400
 
-        stream = StringIO(file.stream.read().decode("UTF-8"), newline=None)
-        csv_reader = csv.DictReader(stream)
-        inserted = 0
-        errors = []
+        try:
+            stream = StringIO(file.stream.read().decode("UTF-8"), newline=None)
+            csv_reader = csv.DictReader(stream)
+            
+            # Ensure required columns exist
+            required_columns = {'admission_number', 'name', 'class'}
+            if not required_columns.issubset(set(csv_reader.fieldnames or [])):
+                missing = required_columns - set(csv_reader.fieldnames or [])
+                return jsonify({'error': f'Missing columns: {", ".join(missing)}'}), 400
 
-        for i, row in enumerate(csv_reader, start=2):
-            try:
-                adm_no = row['admission_number'].strip()
-                name = row['name'].strip()
-                cls = row['class'].strip()
+            inserted = 0
+            errors = []
 
-                if not all([adm_no, name, cls]):
-                    errors.append(f"Row {i}: Missing data")
-                    continue
+            for i, row in enumerate(csv_reader, start=2):
+                try:
+                    adm_no = row.get('admission_number', '').strip()
+                    name = row.get('name', '').strip()
+                    cls = row.get('class', '').strip()
+                    raw_password = row.get('password', '').strip()  # Get password from CSV
 
-                # Prevent duplicate admission numbers
-                if mongo.db.students.find_one({'admission_number': adm_no}):
-                    errors.append(f"Row {i}: Duplicate admission number {adm_no}")
-                    continue
+                    if not all([adm_no, name, cls]):
+                        errors.append(f"Row {i}: Missing required data (admission_number, name, or class)")
+                        continue
 
-                password = row.get('password', 'default123')  # Default or require in CSV
-                hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-                mongo.students.insert_one({
-                    'admission_number': adm_no,
-                    'name': name,
-                    'class': cls,
-                    'password': hashed.decode('utf-8'),
-                    'created_at': datetime.utcnow()
-                })
-                inserted += 1
-            except Exception as e:
-                errors.append(f"Row {i}: {str(e)}")
+                    # Prevent duplicates
+                    if mongo.students.find_one({'admission_number': adm_no}):
+                        errors.append(f"Row {i}: Duplicate admission number '{adm_no}'")
+                        continue
 
-        msg = f"Uploaded {inserted} students."
-        if errors:
-            msg += f" {len(errors)} errors."
-        return jsonify({'status': 'success', 'message': msg, 'errors': errors}), 200
+                    # Smart password handling
+                    # In upload_students() — inside the try block
+                    if raw_password:
+                        if raw_password.startswith(('$2b$', '$2a$', '$2y$')) and len(raw_password) == 60:
+                            hashed_password = raw_password  # Already a valid hash
+                        else:
+                            hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                    else:
+                        # Default password
+                        default_pw = "gpt2025"  # Change as needed
+                        hashed_password = bcrypt.hashpw(default_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+                        errors.append(f"Row {i}: No password — default applied")
+                    
+                    # Insert with string hash
+                    mongo.students.insert_one({
+                        'admission_number': adm_no,
+                        'name': name,
+                        'class': cls,
+                        'password': hashed_password,  # Always a string now
+                        'created_at': datetime.utcnow()
+                    })
+                    inserted += 1
 
+                except Exception as e:
+                    errors.append(f"Row {i}: {str(e)}")
+
+            message = f"Successfully uploaded {inserted} student(s)."
+            if errors:
+                message += f" Warnings/Errors in {len(errors)} row(s)."
+
+            return jsonify({
+                'status': 'success',
+                'message': message,
+                'inserted': inserted,
+                'errors': errors
+            }), 200
+
+        except UnicodeDecodeError:
+            return jsonify({'error': 'File encoding error — please save CSV as UTF-8'}), 400
+        except Exception as e:
+            return jsonify({'error': f'Upload failed: {str(e)}'}), 500
+
+    # GET request — show upload form
     return render_template('admin/upload_students.html')
 
 @admin_bp.route('/subjects', methods=['GET', 'POST'])
