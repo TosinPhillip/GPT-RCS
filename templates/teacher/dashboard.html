@@ -11,7 +11,7 @@
             {% if session_map[sess.name] %}
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {% for item in session_map[sess.name] %}
-                <a href="{{ url_for('teacher.upload_form', session=sess.name, class=item.class, subject=item.subject) }}"
+                <a href="{{ url_for('teacher.upload_form', session=sess.name, class_=item.class, subject=item.subject) }}"
                    class="block p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center">
                     {{ item.subject }} — {{ item.class }}
                 </a>
@@ -23,17 +23,21 @@
         </div>
         {% endfor %}
 
-        <!-- Class Teacher Assignments -->
+                <!-- Class Teacher Assignments -->
         <div class="bg-white p-4 rounded-lg shadow">
             <h3 class="font-semibold text-lg text-indigo-600 mb-3">Class Teacher Roles</h3>
-            {% for ca in class_assignments %}
-            <a href="{{ url_for('teacher.class_teacher_form', session=ca.session, class=ca.class) }}"
-               class="block p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center">
+                {% if class_assignments %}
+                    {% for ca in class_assignments %}
+                <div class="block p-3 bg-indigo-50 hover:bg-indigo-200 rounded-lg text-center cursor-pointer font-medium transition-colors duration-200"
+             onclick="window.location.href='{{ url_for('teacher.class_teacher_form', class_=ca.class, session=ca.session) }}'"
+             role="button"
+             tabindex="0">
                 {{ ca.class }} — {{ ca.session }}
-            </a>
-            {% else %}
-            <p class="text-gray-500 italic">No class teacher assignments.</p>
-            {% endfor %}
+                </div>
+                    {% endfor %}
+                {% else %}
+                <p class="text-gray-500 italic">No class teacher assignments.</p>
+                {% endif %}
         </div>
 
         <a href="{{ url_for('teacher.logout') }}"

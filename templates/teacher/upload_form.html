@@ -1,98 +1,166 @@
 {% extends 'base.html' %}
 {% block content %}
-<section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
-    <h2 class="text-2xl font-bold mb-4 text-indigo-700">
-        {{ subject }} — {{ class_ }} ({{ session }})
-    </h2>
+<section class="max-w-5xl mx-auto p-6">
+    <h2 class="text-2xl font-bold mb-6 text-indigo-700">Upload Scores for {{ subject }} - {{ class_ }} ({{ session }})</h2>
 
-    <div class="mb-6 flex gap-4">
-        <select id="term" class="p-3 border rounded-lg">
-            <option value="">-- Select Term --</option>
-            {% for t in terms %}
-            <option value="{{ t.name }}">{{ t.name }}</option>
-            {% endfor %}
-        </select>
-        <select id="assessment" class="p-3 border rounded-lg">
-            <option value="">-- Assessment --</option>
-            <option value="CA1">CA 1</option>
-            <option value="CA2">CA 2</option>
-            <option value="Exam">Exam</option>
-        </select>
-    </div>
+    <form method="POST" class="space-y-6">
+        {{ form.hidden_tag() }}
 
-    <table class="w-full table-auto border" id="score-table" hidden>
-        <thead class="bg-gray-100">
+        <!-- Term Select -->
+        <div>
+            <label for="{{ form.term.id }}" class="block font-medium text-indigo-600">Term</label>
+            {{ form.term(class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500") }}
+        </div>
+
+        <!-- Student Enrollment Selection -->
+        <div class="bg-white p-4 rounded-lg shadow">
+            <h3 class="font-semibold text-lg text-indigo-600 mb-3">Select Students Offering {{ subject }}</h3>
+            <div class="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+                {% for student in students %}
+                <label class="flex items-center p-2 bg-indigo-50 rounded-md">
+                    <input type="checkbox" name="enrolled_students" value="{{ student._id }}" 
+                           {% if student._id in enrolled_students %}checked{% endif %} 
+                           class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <span class="ml-2">{{ student.name }} ({{ student.admission_number }})</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Scores Table (Dynamic via JS) -->
+        <div id="scores-table" class="bg-white p-4 rounded-lg shadow hidden">
+            <h3 class="font-semibold text-lg text-indigo-600 mb-3">Enter Scores</h3>
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Student</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CA1</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">CA2</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Exam</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden" id="cum1-header">Cumulative 1</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden" id="cum2-header">Cumulative 2</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    <!-- JS will populate rows for selected students -->
+                </tbody>
+            </table>
+        </div>
+
+        <button type="submit" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Save Scores</button>
+    </form>
+</section>
+
+
+<!-- Summary Table - Shown after save or if term selected -->
+{% if summary_results %}
+<div class="mt-8 bg-green-50 p-6 rounded-lg shadow">
+    <h3 class="text-xl font-bold text-green-800 mb-4">
+        Class Summary - {{ subject }} ({{ current_term }} Term)
+    </h3>
+    <table class="min-w-full divide-y divide-green-200">
+        <thead class="bg-green-100">
             <tr>
-                <th class="p-2">Adm #</th>
-                <th class="p-2">Name</th>
-                <th class="p-2">Score</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase">Student</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase">Total</th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-green-800 uppercase">Position</th>
             </tr>
         </thead>
-        <tbody>
-            {% for s in students %}
+        <tbody class="bg-white divide-y divide-green-200">
+            {% for res in summary_results %}
             <tr>
-                <td class="p-2 border">{{ s.admission_number }}</td>
-                <td class="p-2 border">{{ s.name }}</td>
-                <td class="p-2 border">
-                    <input type="number" min="0" max="100"
-                           data-adm="{{ s.admission_number }}"
-                           class="score-input w-20 p-1 border rounded">
+                <td class="px-6 py-4 font-medium">{{ res.student_name }}</td>
+                <td class="px-6 py-4 font-bold">{{ res.total }}</td>
+                <td class="px-6 py-4 text-lg font-bold text-indigo-600">
+                    {{ res.position }}{% if res.position == 1 %}st
+                    {% elif res.position == 2 %}nd
+                    {% elif res.position == 3 %}rd
+                    {% else %}th{% endif %}
                 </td>
             </tr>
             {% endfor %}
+            <tr class="bg-green-200 font-bold">
+                <td class="px-6 py-4 text-right">Class Average:</td>
+                <td colspan="2" class="px-6 py-4">{{ class_average or '0.00' }}</td>
+            </tr>
         </tbody>
     </table>
+</div>
+{% endif %}
 
-    <button id="submit" class="mt-4 w-full py-3 bg-indigo-600 text-white rounded-lg hidden">
-        Upload Scores
-    </button>
-    <div id="result" class="mt-4"></div>
-</section>
 
 <script>
-document.getElementById('term').addEventListener('change', check);
-document.getElementById('assessment').addEventListener('change', check);
+    const termSelect = document.getElementById('{{ form.term.id }}');
+    const scoresTable = document.getElementById('scores-table');
 
-function check() {
-    const term = document.getElementById('term').value;
-    const ass = document.getElementById('assessment').value;
-    if (term && ass) {
-        document.getElementById('score-table').hidden = false;
-        document.getElementById('submit').classList.remove('hidden');
-    }
-}
+    function buildScoresTable() {
+        const term = termSelect.value;
+        if (!term) return;
 
-document.getElementById('submit').addEventListener('click', async () => {
-    const scores = [];
-    document.querySelectorAll('.score-input').forEach(inp => {
-        if (inp.value) {
-            scores.push({
-                adm_no: inp.dataset.adm,
-                score: inp.value
-            });
+        // Show table
+        scoresTable.classList.remove('hidden');
+
+        // Toggle cumulative columns
+        const cumHeaders = document.querySelectorAll('#cum1-header, #cum2-header');
+        const cumCells = document.querySelectorAll('.cum1, .cum2');
+        if (term === 'Third') {
+            cumHeaders.forEach(h => h.classList.remove('hidden'));
+            cumCells.forEach(c => c.classList.remove('hidden'));
+        } else {
+            cumHeaders.forEach(h => h.classList.add('hidden'));
+            cumCells.forEach(c => c.classList.add('hidden'));
         }
+
+        // Clear and rebuild rows for checked students
+        const tbody = scoresTable.querySelector('tbody');
+        tbody.innerHTML = '';
+
+        document.querySelectorAll('input[name="enrolled_students"]:checked').forEach(checkbox => {
+            const studentId = checkbox.value;
+            const label = checkbox.parentElement.querySelector('span');
+            const studentName = label ? label.textContent : 'Unknown';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap font-medium">${studentName}</td>
+                <td class="px-6 py-4"><input type="number" name="score_${studentId}_ca1" min="0" max="15" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
+                <td class="px-6 py-4"><input type="number" name="score_${studentId}_ca2" min="0" max="15" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
+                <td class="px-6 py-4"><input type="number" name="score_${studentId}_exam" min="0" max="70" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
+                <td class="px-6 py-4 hidden cum1"><input type="number" name="score_${studentId}_cumulative1" min="0" max="100" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" ${term !== 'Third' ? 'disabled' : ''}></td>
+                <td class="px-6 py-4 hidden cum2"><input type="number" name="score_${studentId}_cumulative2" min="0" max="100" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" ${term !== 'Third' ? 'disabled' : ''}></td>
+                <td class="px-6 py-4 font-bold text-indigo-600"><span class="total">0.00</span></td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    function calcTotal(input) {
+        const row = input.closest('tr');
+        const ca1 = parseFloat(row.querySelector('[name$="_ca1"]').value) || 0;
+        const ca2 = parseFloat(row.querySelector('[name$="_ca2"]').value) || 0;
+        const exam = parseFloat(row.querySelector('[name$="_exam"]').value) || 0;
+        let total = ca1 + ca2 + exam;
+
+        const term = termSelect.value;
+        if (term === 'Third') {
+            const cum1 = parseFloat(row.querySelector('[name$="_cumulative1"]').value) || 0;
+            const cum2 = parseFloat(row.querySelector('[name$="_cumulative2"]').value) || 0;
+            total = (cum1 + cum2 + (ca1 + ca2 + exam)) / 3;
+        }
+
+        row.querySelector('.total').textContent = total.toFixed(2);
+    }
+
+    // Trigger on load and change
+    termSelect.addEventListener('change', buildScoresTable);
+    document.querySelectorAll('input[name="enrolled_students"]').forEach(cb => {
+        cb.addEventListener('change', buildScoresTable);
     });
 
-    const payload = {
-        session: "{{ session }}",
-        term: document.getElementById('term').value,
-        class: "{{ class_ }}",
-        subject: "{{ subject }}",
-        assessment: document.getElementById('assessment').value,
-        scores
-    };
-
-    const res = await fetch('/teacher/upload', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify(payload)
+    // Auto-build on page load if term pre-selected and students checked
+    window.addEventListener('load', () => {
+        if (termSelect.value) buildScoresTable();
     });
-    const data = await res.json();
-    document.getElementById('result').innerHTML = `
-        <p class="${data.status==='success'?'text-green-600':'text-red-600'}">
-            ${data.status==='success'?'Uploaded!':data.error}
-        </p>
-    `;
-});
 </script>
 {% endblock %}
