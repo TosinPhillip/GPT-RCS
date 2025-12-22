@@ -1,6 +1,7 @@
 # utils/auth.py
 from functools import wraps
-from flask import session, redirect, url_for, request, flash
+from flask import session, redirect, url_for, flash
+from extensions import mongo  # Needed to verify student exists in DB
 
 def admin_required(f):
     @wraps(f)
@@ -15,6 +16,24 @@ def teacher_required(f):
     @wraps(f)
     def wrap(*args, **kwargs):
         if session.get('role') != 'teacher':
-            return redirect(url_for('admin.teacher_login'))
+            return redirect(url_for('teacher.login'))  # Fixed endpoint name for consistency
         return f(*args, **kwargs)
     return wrap
+
+# ==================== STUDENT VERIFICATION DECORATOR ====================
+def student_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'student_adm_no' not in session:
+            flash('Please log in to view your results', 'error')
+            return redirect(url_for('student.login'))
+
+        # Extra safety: verify the student record still exists
+        student = mongo.students.find_one({'admission_number': session['student_adm_no']})
+        if not student:
+            flash('Student account not found. Please contact the school.', 'error')
+            session.clear()
+            return redirect(url_for('student.login'))
+
+        return f(*args, **kwargs)
+    return decorated_function

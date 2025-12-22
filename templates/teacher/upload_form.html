@@ -2,10 +2,8 @@
 {% block content %}
 <section class="max-w-5xl mx-auto p-6">
     <h2 class="text-2xl font-bold mb-6 text-indigo-700">Upload Scores for {{ subject }} - {{ class_ }} ({{ session }})</h2>
-
     <form method="POST" class="space-y-6">
         {{ form.hidden_tag() }}
-
         <!-- Term Select -->
         <div>
             <label for="{{ form.term.id }}" class="block font-medium text-indigo-600">Term</label>
@@ -15,11 +13,13 @@
         <!-- Student Enrollment Selection -->
         <div class="bg-white p-4 rounded-lg shadow">
             <h3 class="font-semibold text-lg text-indigo-600 mb-3">Select Students Offering {{ subject }}</h3>
-            <div class="grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
+            <div class="enrollment-list grid grid-cols-1 gap-2 max-h-64 overflow-y-auto">
                 {% for student in students %}
-                <label class="flex items-center p-2 bg-indigo-50 rounded-md">
-                    <input type="checkbox" name="enrolled_students" value="{{ student._id }}" 
-                           {% if student._id in enrolled_students %}checked{% endif %} 
+                <label class="flex items-center p-2 bg-indigo-50 rounded-md hover:bg-indigo-100 cursor-pointer">
+                    <input type="checkbox" 
+                           name="enrolled_students" 
+                           value="{{ student.admission_number }}"
+                           {% if student.admission_number in enrolled_student_ids %}checked{% endif %}
                            class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                     <span class="ml-2">{{ student.name }} ({{ student.admission_number }})</span>
                 </label>
@@ -27,7 +27,7 @@
             </div>
         </div>
 
-        <!-- Scores Table (Dynamic via JS) -->
+        <!-- Scores Table -->
         <div id="scores-table" class="bg-white p-4 rounded-lg shadow hidden">
             <h3 class="font-semibold text-lg text-indigo-600 mb-3">Enter Scores</h3>
             <table class="min-w-full divide-y divide-gray-200">
@@ -43,17 +43,19 @@
                     </tr>
                 </thead>
                 <tbody class="bg-white divide-y divide-gray-200">
-                    <!-- JS will populate rows for selected students -->
+                    <!-- Rows added dynamically by JavaScript -->
                 </tbody>
             </table>
         </div>
 
-        <button type="submit" class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Save Scores</button>
+        <button type="submit" 
+                class="px-6 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition">
+            Save Scores
+        </button>
     </form>
 </section>
 
-
-<!-- Summary Table - Shown after save or if term selected -->
+<!-- Summary Table -->
 {% if summary_results %}
 <div class="mt-8 bg-green-50 p-6 rounded-lg shadow">
     <h3 class="text-xl font-bold text-green-800 mb-4">
@@ -89,46 +91,44 @@
 </div>
 {% endif %}
 
-
 <script>
     const termSelect = document.getElementById('{{ form.term.id }}');
     const scoresTable = document.getElementById('scores-table');
+    const enrollmentList = document.querySelector('.enrollment-list'); // ← NEW: reliable selector
 
     function buildScoresTable() {
-        const term = termSelect.value;
-        if (!term) return;
-
-        // Show table
-        scoresTable.classList.remove('hidden');
-
-        // Toggle cumulative columns
-        const cumHeaders = document.querySelectorAll('#cum1-header, #cum2-header');
-        const cumCells = document.querySelectorAll('.cum1, .cum2');
-        if (term === 'Third') {
-            cumHeaders.forEach(h => h.classList.remove('hidden'));
-            cumCells.forEach(c => c.classList.remove('hidden'));
-        } else {
-            cumHeaders.forEach(h => h.classList.add('hidden'));
-            cumCells.forEach(c => c.classList.add('hidden'));
+        const term = termSelect.value.trim();
+        if (!term) {
+            scoresTable.classList.add('hidden');
+            return;
         }
 
-        // Clear and rebuild rows for checked students
+        scoresTable.classList.remove('hidden');
+
+        // Show/hide cumulative columns
+        const cumHeaders = document.querySelectorAll('#cum1-header, #cum2-header');
+        if (term === 'Third') {
+            cumHeaders.forEach(h => h.classList.remove('hidden'));
+        } else {
+            cumHeaders.forEach(h => h.classList.add('hidden'));
+        }
+
         const tbody = scoresTable.querySelector('tbody');
         tbody.innerHTML = '';
 
+        // Add rows for every CHECKED student
         document.querySelectorAll('input[name="enrolled_students"]:checked').forEach(checkbox => {
-            const studentId = checkbox.value;
-            const label = checkbox.parentElement.querySelector('span');
-            const studentName = label ? label.textContent : 'Unknown';
+            const admNo = checkbox.value;
+            const studentName = checkbox.parentElement.querySelector('span').textContent.trim();
 
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="px-6 py-4 whitespace-nowrap font-medium">${studentName}</td>
-                <td class="px-6 py-4"><input type="number" name="score_${studentId}_ca1" min="0" max="15" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
-                <td class="px-6 py-4"><input type="number" name="score_${studentId}_ca2" min="0" max="15" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
-                <td class="px-6 py-4"><input type="number" name="score_${studentId}_exam" min="0" max="70" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
-                <td class="px-6 py-4 hidden cum1"><input type="number" name="score_${studentId}_cumulative1" min="0" max="100" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" ${term !== 'Third' ? 'disabled' : ''}></td>
-                <td class="px-6 py-4 hidden cum2"><input type="number" name="score_${studentId}_cumulative2" min="0" max="100" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" ${term !== 'Third' ? 'disabled' : ''}></td>
+                <td class="px-6 py-4"><input type="number" name="score_${admNo}_ca1" min="0" max="15" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
+                <td class="px-6 py-4"><input type="number" name="score_${admNo}_ca2" min="0" max="15" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
+                <td class="px-6 py-4"><input type="number" name="score_${admNo}_exam" min="0" max="70" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" required></td>
+                <td class="px-6 py-4 hidden cum1"><input type="number" name="score_${admNo}_cumulative1" min="0" max="100" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" ${term !== 'Third' ? 'disabled' : ''}></td>
+                <td class="px-6 py-4 hidden cum2"><input type="number" name="score_${admNo}_cumulative2" min="0" max="100" value="0" class="w-20 border rounded-md px-2 py-1" oninput="calcTotal(this)" ${term !== 'Third' ? 'disabled' : ''}></td>
                 <td class="px-6 py-4 font-bold text-indigo-600"><span class="total">0.00</span></td>
             `;
             tbody.appendChild(row);
@@ -142,8 +142,7 @@
         const exam = parseFloat(row.querySelector('[name$="_exam"]').value) || 0;
         let total = ca1 + ca2 + exam;
 
-        const term = termSelect.value;
-        if (term === 'Third') {
+        if (termSelect.value === 'Third') {
             const cum1 = parseFloat(row.querySelector('[name$="_cumulative1"]').value) || 0;
             const cum2 = parseFloat(row.querySelector('[name$="_cumulative2"]').value) || 0;
             total = (cum1 + cum2 + (ca1 + ca2 + exam)) / 3;
@@ -152,15 +151,21 @@
         row.querySelector('.total').textContent = total.toFixed(2);
     }
 
-    // Trigger on load and change
+    // 1. When term changes
     termSelect.addEventListener('change', buildScoresTable);
-    document.querySelectorAll('input[name="enrolled_students"]').forEach(cb => {
-        cb.addEventListener('change', buildScoresTable);
+
+    // 2. When any checkbox is clicked (delegated, works even inside scroll container)
+    enrollmentList.addEventListener('change', (e) => {
+        if (e.target.name === 'enrolled_students') {
+            buildScoresTable();
+        }
     });
 
-    // Auto-build on page load if term pre-selected and students checked
+    // 3. On page load — show rows if term is already selected and students are pre-checked
     window.addEventListener('load', () => {
-        if (termSelect.value) buildScoresTable();
+        if (termSelect.value) {
+            buildScoresTable();
+        }
     });
 </script>
 {% endblock %}

@@ -25,12 +25,14 @@ def create_app():
     init_mongo(app)
 
     # Register blueprints (import here to avoid circular)
+    from routes.main import main_bp
     from routes.admin import admin_bp
     from routes.student import student_bp
     from routes.teacher import teacher_bp
-    
+
+    app.register_blueprint(main_bp)
     app.register_blueprint(admin_bp, url_prefix='/admin')
-    app.register_blueprint(student_bp, url_prefix='/')
+    app.register_blueprint(student_bp, url_prefix='/student')
     app.register_blueprint(teacher_bp, url_prefix='/teacher')
     
 

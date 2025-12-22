@@ -1,128 +1,127 @@
-# routes/student.py
-from flask import Blueprint, render_template, request, jsonify, session , redirect, url_for, flash
+# routes/student.py — Updated to use student_required from utils/auth.py
+
+from flask import Blueprint, render_template, request, session as sesh, jsonify, redirect, url_for, flash
 from extensions import mongo
-from bson import ObjectId
+from utils.auth import student_required  # ← Now importing the centralised decorator
 import bcrypt
 
-student_bp = Blueprint('student', __name__)  # Optional: clean URL
+student_bp = Blueprint('student', __name__, url_prefix='/student')
 
-@student_bp.route('/', methods=['GET', 'POST'])
+# ==================== STUDENT LOGIN ====================
+@student_bp.route('/login', methods=['GET', 'POST'])
 def search():
     if request.method == 'POST':
-        adm_no = request.form.get('admission_number')
-        password = request.form.get('password')
+        admission_number = request.form['admission_number'].strip()
+        password = request.form['password'].encode('utf-8')
 
-        if not adm_no or not password:
-            flash('Please enter both admission number and password.', 'error')
-            return redirect(url_for('student.search'))
+        student = mongo.students.find_one({'admission_number': admission_number})
 
-        student = mongo.db.students.find_one({'admission_number': adm_no.strip()})
+        if student and bcrypt.checkpw(password, student['password'].encode('utf-8')):
+            sesh['adm_no'] = admission_number
+            sesh['student_name'] = student['name']
+            sesh['student_class'] = student['class']
+            return redirect(url_for('student.dashboard'))
 
-        if not student:
-            flash('Invalid admission number or password.', 'error')
-            return redirect(url_for('student.search'))
-
-        # Critical Fix: Ensure stored password is treated as bytes
-        stored_hash = student.get('password')
-
-        if not stored_hash:
-            flash('Account error — contact admin.', 'error')
-            return redirect(url_for('student.search'))
-
-        # If you stored as decoded string (common issue)
-        if isinstance(stored_hash, str):
-            stored_hash_bytes = stored_hash.encode('utf-8')
-        else:
-            stored_hash_bytes = stored_hash  # already bytes (rare)
-
-        # Now check
-        # In the POST success section of search()
-        if bcrypt.checkpw(password.encode('utf-8'), stored_hash_bytes):
-             # CRITICAL: Store the ObjectId as string
-            session['student_id'] = str(student['_id'])
-            session['adm_no'] = str(student['admission_number'])
-    
-          
-    
-            flash('Welcome back! Loading your dashboard...', 'success')
-            return redirect(url_for('student.dashboard'))  # Make sure this matches exactly
-        else:
-            flash('Invalid admission number or password.', 'error')
-            return redirect(url_for('student.search'))
+        flash('Invalid admission number or password', 'error')
 
     return render_template('student/search.html')
 
-@student_bp.route('/dashboard')
-def dashboard():
-    if 'adm_no' not in session:
-        return redirect(url_for('student.search'))
-
-   
-    student = mongo.students.find_one({'admission_number': session['adm_no']})     
-    sessions = list(mongo.sessions.find({}, {'name': 1, '_id': 0}).sort('name'))
-    terms = list(mongo.terms.find({}, {'name': 1, '_id': 0}).sort('order'))
-
-    
-    return render_template('student/dashboard.html', student=student, sessions=sessions, terms=terms)
-    
-
-@student_bp.route('/results')
-def results():
-    # Security: Ensure student is logged in
-    if 'adm_no' not in session:
-        return jsonify({'error': 'Please login first'}), 401
-
-    session_name = request.args.get('session')
-    term = request.args.get('term')
-
-    if not session_name or not term:
-        return jsonify({'error': 'Please select both session and term'}), 400
-
-    adm_no = session['adm_no']
-
-    # Fetch all results for this session + term to calculate class position
-    all_results = list(mongo.results.find({
-        'session': session_name,
-        'term': term
-    }))
-
-    # Calculate total scores for ranking
-    totals = []
-    for r in all_results:
-        total_score = sum(
-            (s.get('score_CA1', 0) + s.get('score_CA2', 0) + s.get('score_Exam', 0))
-            for s in r.get('subjects', [])
-        )
-        totals.append({
-            'admission_number': r['admission_number'],
-            'total': total_score
-        })
-
-    # Sort descending to get positions
-    totals.sort(key=lambda x: x['total'], reverse=True)
-    position = next(
-        (idx + 1 for idx, t in enumerate(totals) if t['admission_number'] == adm_no),
-        None
-    )
-
-    # Fetch the logged-in student's result
-    student_result = mongo.results.find_one({
-        'admission_number': adm_no,
-        'session': session_name,
-        'term': term
-    })
-
-    if not student_result:
-        return jsonify({'results': []})  # Triggers "No results found" in frontend
-
-    # Attach position to result
-    student_result['position'] = position
-
-    # Return in expected format for your JS
-    return jsonify({'results': [student_result]})
-    
+# ==================== LOGOUT ====================
 @student_bp.route('/logout')
 def logout():
-    session.clear()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('student.search'))
+    sesh.clear()
+    return redirect(url_for('student.login'))
+
+# ==================== DASHBOARD / RESULT VIEWER ====================
+@student_bp.route('/dashboard')
+@student_required
+def dashboard():
+    admission_number = sesh['adm_no']
+    student = mongo.students.find_one({'admission_number': admission_number})
+
+    sessions = list(mongo.sessions.find().sort('name', -1))
+    terms = list(mongo.terms.find().sort('order'))
+
+    return render_template(
+        'student/dashboard.html',
+        student=student,
+        sessions=sessions,
+        terms=terms
+    )
+
+# ==================== AJAX RESULT FETCH ====================
+# routes/student.py — /results route (clean, safe, no slash issues)
+
+@student_bp.route('/results')
+@student_required
+def get_results():
+    try:
+        session_name = request.args.get('session')
+        term_name = request.args.get('term')
+    
+        if not session_name or not term_name:
+            return jsonify({'error': 'Session and term required'}), 400
+    
+        admission_number = sesh['adm_no']
+    
+        subject_results = list(mongo.results.find({
+            'admission_number': admission_number,
+            'session': session_name,
+            'term': term_name
+        }).sort('subject'))
+    
+        if not subject_results:
+            return jsonify({'results': []})
+    
+        subjects = []
+        grand_total = 0
+    
+        for res in subject_results:
+            ca1 = res.get('ca1', 0)
+            ca2 = res.get('ca2', 0)
+            exam = res.get('exam', 0)
+            cum1 = res.get('cumulative1', 0)
+            cum2 = res.get('cumulative2', 0)
+    
+            if term_name == 'Third':
+                subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / 3, 2)
+            else:
+                subject_total = ca1 + ca2 + exam
+    
+            grand_total += subject_total
+    
+            subjects.append({
+                'subject': res['subject'],
+                'ca1': ca1,
+                'ca2': ca2,
+                'exam': exam,
+                'cumulative1': cum1,
+                'cumulative2': cum2,
+                'total': subject_total,
+                'position': res.get('position'),
+                'class_average': res.get('class_average')
+            })
+    
+        comment_doc = mongo.results.find_one({
+            'admission_number': admission_number,
+            'session': session_name,
+            'term': term_name,
+            'teacher_comment': {'$exists': True}
+        })
+    
+        average = round(grand_total / len(subjects), 2) if subjects else 0
+        class_average = subjects[0].get('class_average') if subjects else None
+    
+        result_doc = {
+            'subjects': subjects,
+            'grand_total': round(grand_total, 2),
+            'average': average,
+            'class_average': class_average,
+            'teacher_comment': comment_doc.get('teacher_comment') if comment_doc else None,
+        }
+    
+        return jsonify({'results': [result_doc]})
+    except Exception as e:
+        import traceback
+        print(traceback.format_exc())
+        return jsonify({'error': str(e)}), 500

@@ -1,15 +1,13 @@
 # routes/admin.py
 from flask import Blueprint, render_template, request, session, redirect, url_for, flash, jsonify
-from extensions import mongo  # ← Fixed: no more import from app
+from extensions import mongo
 from models.result import upload_result
 from utils.auth import admin_required
 import bcrypt
 import csv
 from datetime import datetime
 from io import StringIO
-from flask import request, jsonify
 from bson import ObjectId
-
 
 admin_bp = Blueprint('admin', __name__)
 
@@ -22,13 +20,11 @@ def login():
     if request.method == 'POST':
         username = request.form['username']
         password = request.form['password'].encode('utf-8')
-
         if username == ADMIN_USERNAME and bcrypt.checkpw(password, ADMIN_PASSWORD_HASH.encode('utf-8')):
             session['admin_logged_in'] = True
             return redirect(url_for('admin.dashboard'))
         else:
             flash('Invalid credentials', 'error')
-
     return render_template('admin/login.html')
 
 @admin_bp.route('/logout')
@@ -46,9 +42,8 @@ def upload():
             student = mongo.students.find_one({'admission_number': adm_no})
             if not student:
                 return jsonify({'error': 'Student not found'}), 404
-
             result_data = {
-                'student_id': student['_id'],
+                'admission_number': adm_no,  # Changed from student_id
                 'session': data['session'],
                 'term': data['term'],
                 'subjects': data['subjects']
@@ -57,10 +52,8 @@ def upload():
             return jsonify({'status': 'success', 'result_id': str(result.inserted_id)})
         except Exception as e:
             return jsonify({'error': str(e)}), 400
-
     return render_template('admin/upload.html')
 
-# routes/admin.py – add three routes
 @admin_bp.route('/sessions', methods=['GET','POST'])
 @admin_required
 def manage_sessions():
@@ -75,7 +68,6 @@ def manage_sessions():
     items = list(mongo.sessions.find())
     return render_template('admin/sessions.html', items=items, title='Sessions')
 
-# For terms
 @admin_bp.route('/terms', methods=['GET','POST'])
 @admin_required
 def manage_terms():
@@ -85,12 +77,11 @@ def manage_terms():
             flash('Term exists', 'error')
         else:
             mongo.terms.insert_one({'name': name, 'active': True})
-            flash('Session added', 'success')
+            flash('Term added', 'success')  # Fixed message
         return redirect(url_for('admin.manage_terms'))
     items = list(mongo.terms.find())
     return render_template('admin/terms.html', items=items, title='Terms')
 
-# For classes
 @admin_bp.route('/classes', methods=['GET','POST'])
 @admin_required
 def manage_classes():
@@ -105,8 +96,6 @@ def manage_classes():
     items = list(mongo.classes.find())
     return render_template('admin/classes.html', items=items, title='Classes')
 
-
-
 @admin_bp.route('/upload-students', methods=['GET', 'POST'])
 @admin_required
 def upload_students():
@@ -118,79 +107,64 @@ def upload_students():
             return jsonify({'error': 'No file selected'}), 400
         if not file.filename.lower().endswith('.csv'):
             return jsonify({'error': 'Only CSV files are allowed'}), 400
-
         try:
             stream = StringIO(file.stream.read().decode("UTF-8"), newline=None)
             csv_reader = csv.DictReader(stream)
-            
+           
             # Ensure required columns exist
             required_columns = {'admission_number', 'name', 'class'}
             if not required_columns.issubset(set(csv_reader.fieldnames or [])):
                 missing = required_columns - set(csv_reader.fieldnames or [])
                 return jsonify({'error': f'Missing columns: {", ".join(missing)}'}), 400
-
             inserted = 0
             errors = []
-
             for i, row in enumerate(csv_reader, start=2):
                 try:
                     adm_no = row.get('admission_number', '').strip()
                     name = row.get('name', '').strip()
                     cls = row.get('class', '').strip()
-                    raw_password = row.get('password', '').strip()  # Get password from CSV
-
+                    raw_password = row.get('password', '').strip()
                     if not all([adm_no, name, cls]):
                         errors.append(f"Row {i}: Missing required data (admission_number, name, or class)")
                         continue
-
                     # Prevent duplicates
                     if mongo.students.find_one({'admission_number': adm_no}):
                         errors.append(f"Row {i}: Duplicate admission number '{adm_no}'")
                         continue
-
                     # Smart password handling
-                    # In upload_students() — inside the try block
                     if raw_password:
                         if raw_password.startswith(('$2b$', '$2a$', '$2y$')) and len(raw_password) == 60:
-                            hashed_password = raw_password  # Already a valid hash
+                            hashed_password = raw_password
                         else:
                             hashed_password = bcrypt.hashpw(raw_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
                     else:
-                        # Default password
-                        default_pw = "gpt2025"  # Change as needed
+                        default_pw = "gpt2025"
                         hashed_password = bcrypt.hashpw(default_pw.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
-                        errors.append(f"Row {i}: No password — default applied")
-                    
-                    # Insert with string hash
+                        errors.append(f"Row {i}: No password — default '{default_pw}' applied")
+                   
                     mongo.students.insert_one({
                         'admission_number': adm_no,
                         'name': name,
                         'class': cls,
-                        'password': hashed_password,  # Always a string now
+                        'password': hashed_password,
                         'created_at': datetime.utcnow()
                     })
                     inserted += 1
-
                 except Exception as e:
                     errors.append(f"Row {i}: {str(e)}")
-
             message = f"Successfully uploaded {inserted} student(s)."
             if errors:
                 message += f" Warnings/Errors in {len(errors)} row(s)."
-
             return jsonify({
                 'status': 'success',
                 'message': message,
                 'inserted': inserted,
                 'errors': errors
             }), 200
-
         except UnicodeDecodeError:
             return jsonify({'error': 'File encoding error — please save CSV as UTF-8'}), 400
         except Exception as e:
             return jsonify({'error': f'Upload failed: {str(e)}'}), 500
-
-    # GET request — show upload form
     return render_template('admin/upload_students.html')
 
 @admin_bp.route('/subjects', methods=['GET', 'POST'])
@@ -206,7 +180,6 @@ def manage_subjects():
             mongo.subjects.insert_one({'name': name, 'added_at': datetime.utcnow()})
             flash('Subject added', 'success')
         return redirect(url_for('admin.manage_subjects'))
-
     subjects = list(mongo.subjects.find().sort('name'))
     return render_template('admin/subjects.html', subjects=subjects)
 
@@ -215,7 +188,6 @@ def get_subjects():
     subjects = list(mongo.subjects.find().sort('name'))
     return jsonify([{'name': s['name']} for s in subjects])
 
-# Add to admin.py — Teacher Registration
 @admin_bp.route('/teachers', methods=['GET', 'POST'])
 @admin_required
 def manage_teachers():
@@ -236,25 +208,21 @@ def manage_teachers():
             })
             flash('Teacher added', 'success')
         return redirect(url_for('admin.manage_teachers'))
-
     teachers = list(mongo.users.find({'role': 'teacher'}))
     return render_template('admin/teachers.html', teachers=teachers)
 
-# routes/admin.py
 @admin_bp.route('/assign', methods=['GET', 'POST'])
 @admin_required
 def assign_teachers():
     teachers = list(mongo.users.find({'role': 'teacher'}, {'username': 1}))
     sessions = list(mongo.sessions.find({}, {'name': 1, '_id': 0}).sort('name'))
-    classes  = list(mongo.classes.find({}, {'name': 1, '_id': 0}).sort('order'))
+    classes = list(mongo.classes.find({}, {'name': 1, '_id': 0}).sort('order'))
     subjects = list(mongo.subjects.find({}, {'name': 1, '_id': 0}).sort('name'))
-
     if request.method == 'POST':
         teacher_id = request.form['teacher_id']
         session_name = request.form['session']
         class_name = request.form['class']
         subject_name = request.form['subject']
-
         # Prevent duplicate
         existing = mongo.teacher_assignments.find_one({
             'teacher_id': ObjectId(teacher_id),
@@ -274,13 +242,11 @@ def assign_teachers():
             })
             flash('Assignment added', 'success')
         return redirect(url_for('admin.assign_teachers'))
-
     assignments = list(mongo.teacher_assignments.aggregate([
         {"$lookup": {"from": "users", "localField": "teacher_id", "foreignField": "_id", "as": "teacher"}},
         {"$unwind": "$teacher"},
         {"$project": {"teacher.username": 1, "session": 1, "class": 1, "subject": 1}}
     ]))
-
     return render_template(
         'admin/assign.html',
         teachers=teachers,
@@ -289,13 +255,11 @@ def assign_teachers():
         subjects=subjects,
         assignments=assignments
     )
-    
-# routes/admin.py
+
 @admin_bp.route('/dashboard')
 @admin_required
 def dashboard():
     return render_template('admin/dashboard.html')
-
 
 @admin_bp.route('/assign_class_teachers', methods=['GET', 'POST'])
 @admin_required
@@ -303,7 +267,6 @@ def assign_class_teachers():
     teachers = list(mongo.users.find({'role': 'teacher'}, {'username': 1}))
     sessions = list(mongo.sessions.find({}, {'name': 1, '_id': 0}))
     classes = list(mongo.classes.find({}, {'name': 1, '_id': 0}))
-
     if request.method == 'POST':
         teacher_id = request.form['teacher_id']
         session_name = request.form['session']
@@ -323,13 +286,11 @@ def assign_class_teachers():
             })
             flash('Class teacher assigned', 'success')
         return redirect(url_for('admin.assign_class_teachers'))
-
     assignments = list(mongo.class_teachers.aggregate([
         {"$lookup": {"from": "users", "localField": "teacher_id", "foreignField": "_id", "as": "teacher"}},
         {"$unwind": "$teacher"},
         {"$project": {"teacher.username": 1, "session": 1, "class": 1}}
     ]))
-
     return render_template(
         'admin/assign_class_teachers.html',
         teachers=teachers,
