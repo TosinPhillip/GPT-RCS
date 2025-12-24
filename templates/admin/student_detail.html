@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="max-w-5xl mx-auto p-6">
+    <div class="bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-start mb-8">
+            <div>
+                <h2 class="text-3xl font-bold text-indigo-700">{{ student.name }}</h2>
+                <p class="text-xl text-gray-600 mt-2">{{ student.admission_number }} — {{ student.class }}</p>
+            </div>
+            <a href="{{ url_for('admin.manage_students') }}" class="text-indigo-600 hover:underline">← Back to Students</a>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
+            <div>
+                <h3 class="font-semibold text-lg mb-3">Result Visibility</h3>
+                <form method="POST" class="inline">
+                    <input type="hidden" name="action" value="toggle_visibility">
+                    <button type="submit"
+                            class="px-6 py-3 rounded-lg text-white font-medium
+                                   {% if student.get('results_visible', True) %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %}">
+                        {% if student.get('results_visible', True) %}Block Results{% else %}Allow Results{% endif %}
+                    </button>
+                </form>
+            </div>
+
+            <div>
+                <h3 class="font-semibold text-lg mb-3">Change Class</h3>
+                <form method="POST" class="flex gap-3">
+                    <input type="hidden" name="action" value="promote">
+                    <select name="new_class" class="px-4 py-2 border rounded-lg">
+                        {% for cls in classes %}
+                        <option value="{{ cls }}" {% if cls == student.class_ %}selected disabled{% endif %}>{{ cls }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+                        Change
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Results by Session/Term -->
+        <h3 class="text-2xl font-bold text-indigo-700 mb-6">Academic Results</h3>
+        {% if grouped_results %}
+            {% for (session, term), subjects in grouped_results.items() %}
+            <div class="mb-8 bg-gray-50 p-6 rounded-lg">
+                <h4 class="text-xl font-semibold text-indigo-600 mb-4">{{ session }} — {{ term }} Term</h4>
+                <table class="min-w-full divide-y divide-gray-300">
+                    <thead class="bg-indigo-100">
+                        <tr>
+                            <th class="px-4 py-3 text-left">Subject</th>
+                            <th class="px-4 py-3 text-center">CA1</th>
+                            <th class="px-4 py-3 text-center">CA2</th>
+                            <th class="px-4 py-3 text-center">Exam</th>
+                            <th class="px-4 py-3 text-center">Total</th>
+                            <th class="px-4 py-3 text-center">Position</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for res in subjects %}
+                        <tr>
+                            <td class="px-4 py-3 font-medium">{{ res.subject }}</td>
+                            <td class="px-4 py-3 text-center">{{ res.ca1 or '-' }}</td>
+                            <td class="px-4 py-3 text-center">{{ res.ca2 or '-' }}</td>
+                            <td class="px-4 py-3 text-center">{{ res.exam or '-' }}</td>
+                            <td class="px-4 py-3 text-center font-bold text-indigo-600">{{ res.total or '-' }}</td>
+                            <td class="px-4 py-3 text-center">{{ res.position ~ ['st','nd','rd'][loop.index0 if loop.index0 < 3 else 3] ~ 'th' if res.position else '-' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-gray-500 italic">No results recorded yet.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

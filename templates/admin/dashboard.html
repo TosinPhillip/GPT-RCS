@@ -2,47 +2,44 @@
 {% block content %}
 <section class="max-w-5xl mx-auto p-6 bg-white rounded-xl shadow-lg">
     <h2 class="text-2xl font-bold mb-6 text-indigo-700">Admin Dashboard</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <a href="{{ url_for('admin.upload') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Upload Single Result
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Session Management -->
+        <a href="{{ url_for('admin.sessions_list') }}"
+           class="block bg-white p-8 rounded-xl shadow hover:shadow-xl transition transform hover:-translate-y-1">
+            <div class="text-indigo-600 mb-4">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-800">Manage Sessions & Terms</h3>
+            <p class="text-gray-600 mt-2">Create sessions, activate terms, set current academic year</p>
         </a>
-        <a href="{{ url_for('admin.upload_students') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Upload Students (CSV)
+
+        <!-- Student Enrollment -->
+        <a href="{{ url_for('admin.enroll_students') }}"
+           class="block bg-white p-8 rounded-xl shadow hover:shadow-xl transition transform hover:-translate-y-1">
+            <div class="text-green-600 mb-4">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-800">Enroll Students</h3>
+            <p class="text-gray-600 mt-2">Add students to current session, carry over from previous years</p>
         </a>
-        <a href="{{ url_for('admin.manage_subjects') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Manage Subjects
+
+        <a href="{{ url_for('admin.promote_students') }}"
+           class="block bg-white p-8 rounded-xl shadow hover:shadow-xl transition">
+            <div class="text-orange-600 mb-4">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold">Promote Students</h3>
+            <p class="text-gray-600 mt-2">End session: promote classes, mark graduates</p>
         </a>
-        <a href="{{ url_for('admin.manage_teachers') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Manage Teachers
-        </a>
-        <a href="{{ url_for('admin.assign_teachers') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Assign Teachers
-        </a>
-        <a href="{{ url_for('admin.manage_sessions') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Manage Sessions
-        </a>
-        <a href="{{ url_for('admin.manage_terms') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Manage Terms
-        </a>
-        <a href="{{ url_for('admin.manage_classes') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Manage Classes
-        </a>
-        <a href="{{ url_for('admin.assign_class_teachers') }}" 
-           class="block p-4 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center text-indigo-700 font-semibold">
-            Assign Class Teachers
-        </a>
-        <a href="{{ url_for('admin.logout') }}" 
-           class="block p-4 bg-red-50 hover:bg-red-100 rounded-lg text-center text-red-700 font-semibold">
-            Logout
-        </a>
-    </div>
-</section>
+        
+
 {% endblock %}

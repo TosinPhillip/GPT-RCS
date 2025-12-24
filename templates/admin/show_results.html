@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+<!-- Inside admin students list -->
+{% for student in students %}
+<div class="bg-white p-4 rounded-lg shadow mb-4 flex justify-between items-center">
+    <div>
+        <p class="font-semibold">{{ student.name }}</p>
+        <p class="text-sm text-gray-600">{{ student.admission_number }} — {{ student.class_ }}</p>
+    </div>
+    <div class="flex items-center space-x-3">
+        <span class="text-sm font-medium {% if student.results_visible %}text-green-600{% else %}text-red-600{% endif %}">
+            Results: {% if student.results_visible %}Visible{% else %}Blocked{% endif %}
+        </span>
+        <form method="POST" action="{{ url_for('admin.toggle_result_visibility', student_id=student._id) }}" class="inline">
+            <button type="submit"
+                    class="px-4 py-2 rounded-lg text-white font-medium transition
+                           {% if student.results_visible %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %}">
+                {% if student.results_visible %}Block{% else %}Allow{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+{% endfor %}}

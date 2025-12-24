@@ -4,6 +4,7 @@ from wtforms import IntegerField, SelectField, SubmitField
 from wtforms.validators import DataRequired, NumberRange
 from extensions import mongo
 from utils.auth import teacher_required
+from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission
 from models.result import upload_result
 from datetime import datetime
 from bson import ObjectId
@@ -34,27 +35,33 @@ def logout():
 @teacher_required
 def dashboard():
     teacher_id = ObjectId(sesh['user_id'])
-    sessions = list(mongo.sessions.find({}, {'name': 1, '_id': 0}))
-    assignments = list(mongo.teacher_assignments.find(
-        {'teacher_id': teacher_id},
-        {'session': 1, 'class': 1, 'subject': 1, '_id': 0}
-    ))
+    ctx = get_current_context()  # Active session/term
+
+    # Subject assignments in active session
+    assignments = list(mongo.teacher_assignments.find({
+        'teacher_id': teacher_id,
+        'session': ctx['session_name']
+    }))
+
     session_map = {}
     for a in assignments:
-        sess = a['session']
-        if sess not in session_map:
-            session_map[sess] = []
-        session_map[sess].append({'class': a['class'], 'subject': a['subject']})
-    # Add class teacher assignments
-    class_assignments = list(mongo.class_teachers.find(
-        {'teacher_id': teacher_id},
-        {'session': 1, 'class': 1, '_id': 0}
-    ))
+        session_map.setdefault(ctx['session_name'], []).append({
+            'class': a['class'],
+            'subject': a['subject']
+        })
+
+    # Class teacher role in active session
+    class_assignment = list(mongo.class_teachers.find({
+        'teacher_id': teacher_id,
+        'session': ctx['session_name']
+    }))
+
     return render_template(
         'teacher/dashboard.html',
-        sessions=sessions,
+        session_name=ctx['session_name'],
+        term=ctx['term'],
         session_map=session_map,
-        class_assignments=class_assignments
+        class_assignment=class_assignment  # {'class': 'JSS1'} or None
     )
 # ==================== UPLOAD RESULT ====================
 # New Form for Scores (per student, but we'll use dynamic in template)
@@ -78,163 +85,84 @@ def api_students():
         {'admission_number': 1, 'name': 1, '_id': 0}
     ))
     return jsonify(students)
-@teacher_bp.route('/upload/<class_>/<subject>', methods=['GET', 'POST'])
+
+
+@teacher_bp.route('/upload/<class_>/<subject>')
 @teacher_required
 def upload_form(class_, subject):
-    session = request.args.get('session') # Required; add validation below
-    if not session:
-        flash('Missing session', 'error')
-        return redirect(url_for('teacher.dashboard'))
-    # Verify assignment
     teacher_id = ObjectId(sesh['user_id'])
+    ctx = get_current_context()
+
+    # Verify assignment in active session
     assignment = mongo.teacher_assignments.find_one({
         'teacher_id': teacher_id,
-        'session': session,
+        'session': ctx['session_name'],
         'class': class_,
         'subject': subject
     })
     if not assignment:
-        flash('You are not assigned to this class/subject', 'error')
+        flash('Not assigned to this class/subject this session', 'error')
         return redirect(url_for('teacher.dashboard'))
-    students = list(mongo.students.find(
-        {'class': class_},
-        {'admission_number': 1, 'name': 1, '_id': 0}
-    ).sort('name'))
-    # Load enrollments
-    enrollment_doc = mongo.student_subjects.find_one({'session': session, 'class': class_})
-    enrolled_student_adm_nos = enrollment_doc['subjects'][subject] if enrollment_doc and subject in enrollment_doc.get('subjects', {}) else []
-    terms = list(mongo.terms.find({}, {'name': 1, '_id': 0}).sort('order'))
-    form = ScoreForm()
-    form.term.choices = [(t['name'], t['name']) for t in terms]
-    saved_term = None
-    summary_results = []
-    if request.method == 'POST':
-        form.process(data=request.form)
-        term = request.form.get('term')
-        if not term:
-            flash('Please select a term', 'error')
-        else:
-            selected_adm_nos = request.form.getlist('enrolled_students')
-            
-            # Save enrollments
-            mongo.student_subjects.update_one(
-                {'session': session, 'class': class_},
-                {'$set': {f'subjects.{subject}': selected_adm_nos}},
-                upsert=True
-            )
 
-            results_to_save = []
-            for adm_no in selected_adm_nos:
-                prefix = f'score_{adm_no}_'
-                ca1 = int(request.form.get(prefix + 'ca1', 0))
-                ca2 = int(request.form.get(prefix + 'ca2', 0))
-                exam = int(request.form.get(prefix + 'exam', 0))
-                cumulative1 = int(request.form.get(prefix + 'cumulative1', 0)) if term == 'Third' else 0
-                cumulative2 = int(request.form.get(prefix + 'cumulative2', 0)) if term == 'Third' else 0
-                
-                if term == 'Third':
-                    term_total = ca1 + ca2 + exam
-                    final_total = round((cumulative1 + cumulative2 + term_total) / 3, 2)
-                else:
-                    final_total = ca1 + ca2 + exam
+    # Students enrolled in this class AND offering this subject
+    enrolled_students = list(mongo.enrollments.find({
+        'session': ctx['session_name'],
+        'term': ctx['term'],
+        'class_': class_,
+        'subjects': subject,
+        'status': 'active'
+    }))
 
-                results_to_save.append({
-                    'admission_number': adm_no,
-                    'total': final_total,
-                    'ca1': ca1, 'ca2': ca2, 'exam': exam,
-                    'cumulative1': cumulative1, 'cumulative2': cumulative2
-                })
+    student_ids = [e['student_id'] for e in enrolled_students]
+    students = list(mongo.students.find({'_id': {'$in': student_ids}}).sort('name'))
 
-                # FIXED: Include key fields in $set so they are saved on upsert
-                mongo.results.update_one(
-                    {
-                        'admission_number': adm_no,
-                        'session': session,
-                        'class': class_,
-                        'subject': subject,
-                        'term': term
-                    },
-                    {'$set': {
-                        'admission_number': adm_no,   # Essential
-                        'session': session,           # Essential
-                        'class': class_,              # Essential
-                        'subject': subject,           # Essential
-                        'term': term,                 # Essential
-                        'ca1': ca1,
-                        'ca2': ca2,
-                        'exam': exam,
-                        'cumulative1': cumulative1,
-                        'cumulative2': cumulative2,
-                        'total': final_total
-                    }},
-                    upsert=True
-                )
+    terms = [{'name': ctx['term']}]  # Only current term
 
-            # Ranking and class average (unchanged)
-            if results_to_save:
-                results_to_save.sort(key=lambda x: x['total'], reverse=True)
-                class_average = round(sum(r['total'] for r in results_to_save) / len(results_to_save), 2)
-                for rank, res in enumerate(results_to_save, 1):
-                    mongo.results.update_one(
-                        {
-                            'admission_number': res['admission_number'],
-                            'session': session,
-                            'class': class_,
-                            'subject': subject,
-                            'term': term
-                        },
-                        {'$set': {'position': rank, 'class_average': class_average}}
-                    )
-
-            flash(f'Scores saved successfully for {term} Term!', 'success')
-            saved_term = term
-    # After save or on GET: load summary if term selected/saved
-    current_term = saved_term or request.args.get('term') or (terms[0]['name'] if terms else None)
-    if current_term:
-        summary_results = list(mongo.results.find({
-            'session': session,
-            'class': class_,
-            'subject': subject,
-            'term': current_term
-        }).sort('total', -1))
-        for res in summary_results:
-            student = mongo.students.find_one({'admission_number': res['admission_number']})
-            res['student_name'] = student['name'] if student else 'Unknown'
     return render_template(
         'teacher/upload_form.html',
-        session=session,
+        session=ctx['session_name'],
+        term=ctx['term'],
         class_=class_,
         subject=subject,
         students=students,
-        enrolled_student_ids=enrolled_student_adm_nos,
-        terms=terms,
-        form=form,
-        summary_results=summary_results,
-        current_term=current_term,
-        class_average=summary_results[0]['class_average'] if summary_results else None
+        terms=terms
     )
-   
+
+    
 @teacher_bp.route('/class_teacher/<class_>')
 @teacher_required
 def class_teacher_form(class_):
-    session = request.args.get('session') # Required; add validation below
-    if not session:
-        flash('Missing session', 'error')
-        return redirect(url_for('teacher.dashboard'))
-   
     teacher_id = ObjectId(sesh['user_id'])
+    ctx = get_current_context()
+
     assignment = mongo.class_teachers.find_one({
         'teacher_id': teacher_id,
-        'session': session,
+        'session': ctx['session_name'],
         'class': class_
     })
     if not assignment:
-        flash('Not assigned as class teacher for this session/class', 'error')
+        flash('Not assigned as class teacher this session', 'error')
         return redirect(url_for('teacher.dashboard'))
-   
-    students = list(mongo.students.find({'class': class_}, {'admission_number': 1, 'name': 1, '_id': 0}).sort('name'))
-    terms = list(mongo.terms.find({}, {'name': 1, '_id': 0}).sort('order'))
-    return render_template('teacher/class_teacher.html', session=session, class_=class_, students=students, terms=terms)
+
+    # All active students in this class
+    enrolled = list(mongo.enrollments.find({
+        'session': ctx['session_name'],
+        'term': ctx['term'],
+        'class_': class_,
+        'status': 'active'
+    }))
+    student_ids = [e['student_id'] for e in enrolled]
+    students = list(mongo.students.find({'_id': {'$in': student_ids}}).sort('name'))
+
+    return render_template(
+        'teacher/class_teacher.html',
+        session=ctx['session_name'],
+        term=ctx['term'],
+        class_=class_,
+        students=students
+    )   
+
+
 @teacher_bp.route('/class_teacher/update', methods=['POST'])
 @teacher_required
 def class_teacher_update():

@@ -26,14 +26,14 @@ def student_required(f):
     def decorated_function(*args, **kwargs):
         if 'student_adm_no' not in session:
             flash('Please log in to view your results', 'error')
-            return redirect(url_for('student.login'))
+            return redirect(url_for('student.search'))
 
         # Extra safety: verify the student record still exists
         student = mongo.students.find_one({'admission_number': session['student_adm_no']})
         if not student:
             flash('Student account not found. Please contact the school.', 'error')
             session.clear()
-            return redirect(url_for('student.login'))
+            return redirect(url_for('student.search'))
 
         return f(*args, **kwargs)
     return decorated_function

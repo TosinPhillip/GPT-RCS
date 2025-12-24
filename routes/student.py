@@ -11,17 +11,21 @@ student_bp = Blueprint('student', __name__, url_prefix='/student')
 @student_bp.route('/login', methods=['GET', 'POST'])
 def search():
     if request.method == 'POST':
-        admission_number = request.form['admission_number'].strip()
+        adm_no = request.form['admission_number'].strip()
         password = request.form['password'].encode('utf-8')
 
-        student = mongo.students.find_one({'admission_number': admission_number})
-
+        student = mongo.students.find_one({'admission_number': adm_no})
         if student and bcrypt.checkpw(password, student['password'].encode('utf-8')):
-            sesh['adm_no'] = admission_number
-            sesh['student_name'] = student['name']
-            sesh['student_class'] = student['class']
-            return redirect(url_for('student.dashboard'))
+            # Check if blocked
+            if not student.get('results_visible', True):
+                flash('Your results are currently unavailable. Contact administration.', 'error')
+                return render_template('student/login.html')
 
+            
+            sesh['adm_no'] = student['admission_number']
+            sesh['student_name'] = student['name']
+            sesh['role'] = 'student'
+            return redirect(url_for('student.dashboard'))
         flash('Invalid admission number or password', 'error')
 
     return render_template('student/search.html')
@@ -36,17 +40,32 @@ def logout():
 @student_bp.route('/dashboard')
 @student_required
 def dashboard():
-    admission_number = sesh['adm_no']
-    student = mongo.students.find_one({'admission_number': admission_number})
+    
+    adm_no = sesh['adm_no']
+    # Get all sessions this student has results in
+    student_sessions = sorted(
+        set(r['session'] for r in mongo.results.find({'admission_number': adm_no}, {'session': 1}))
+    )
 
-    sessions = list(mongo.sessions.find().sort('name', -1))
-    terms = list(mongo.terms.find().sort('order'))
+    # Default to latest session
+    selected_session = request.args.get('session', student_sessions[-1] if student_sessions else None)
+
+    results = {}
+    if selected_session:
+        raw = list(mongo.results.find({
+            'admission_number': adm_no,
+            'session': selected_session
+        }).sort('term', 1))
+
+        for r in raw:
+            results.setdefault(r['term'], []).append(r)
 
     return render_template(
         'student/dashboard.html',
-        student=student,
-        sessions=sessions,
-        terms=terms
+        student_sessions=student_sessions,
+        selected_session=selected_session,
+        grouped_results=results,
+        student_name=sesh['student_name']
     )
 
 # ==================== AJAX RESULT FETCH ====================
@@ -55,6 +74,10 @@ def dashboard():
 @student_bp.route('/results')
 @student_required
 def get_results():
+    student = mongo.students.find_one({'admission_number': sesh['adm_no']})
+    
+    if not student.get('results_visible', True):
+        return render_template('student/blocked.html')
     try:
         session_name = request.args.get('session')
         term_name = request.args.get('term')

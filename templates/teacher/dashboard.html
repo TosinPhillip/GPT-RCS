@@ -5,14 +5,14 @@
 
     <div class="space-y-6">
         <!-- Subject Assignments -->
-        {% for sess in sessions %}
+        {% if session_map[session_name] %}
         <div class="bg-white p-4 rounded-lg shadow">
-            <h3 class="font-semibold text-lg text-indigo-600 mb-3">{{ sess.name }} - Subjects</h3>
-            {% if session_map[sess.name] %}
+            <h3 class="font-semibold text-lg text-indigo-600 mb-3">{{ session_name }} - Subjects</h3>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {% for item in session_map[sess.name] %}
-                <a href="{{ url_for('teacher.upload_form', session=sess.name, class_=item.class, subject=item.subject) }}"
-                   class="block p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center">
+                {% for item in session_map[session_name] %}
+                <a href="{{ url_for('teacher.upload_form', session=session_name, class_=item.class, subject=item.subject) }}"
+                   class="block p-3 bg-indigo-50 hover:bg-indigo-100 rounded-lg text-center cursor-pointer">
                     {{ item.subject }} — {{ item.class }}
                 </a>
                 {% endfor %}
@@ -21,13 +21,13 @@
             <p class="text-gray-500 italic">No subject assignments.</p>
             {% endif %}
         </div>
-        {% endfor %}
+       
 
                 <!-- Class Teacher Assignments -->
         <div class="bg-white p-4 rounded-lg shadow">
             <h3 class="font-semibold text-lg text-indigo-600 mb-3">Class Teacher Roles</h3>
-                {% if class_assignments %}
-                    {% for ca in class_assignments %}
+                {% if class_assignment %}
+                    {% for ca in class_assignment %}
                 <div class="block p-3 bg-indigo-50 hover:bg-indigo-200 rounded-lg text-center cursor-pointer font-medium transition-colors duration-200"
              onclick="window.location.href='{{ url_for('teacher.class_teacher_form', class_=ca.class, session=ca.session) }}'"
              role="button"
