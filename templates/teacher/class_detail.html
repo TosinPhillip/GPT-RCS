@@ -1,0 +1,71 @@
+<div class="max-w-7xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-10">
+        <h2 class="text-3xl font-bold text-gray-800 mb-6">{{ class_name }} - {{ term }} Term</h2>
+
+        <div class="space-y-12">
+            {% for subject in subjects %}
+                <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6">{{ subject }}</h3>
+                    <table class="w-full">
+                        <thead>
+                            <tr class="bg-indigo-100">
+                                <th class="p-4 text-left">Student</th>
+                                <th class="p-4 text-center">Enrolled</th>
+                                <th class="p-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for student in students %}
+                                {% set adm_no = student.admission_number %}
+                                {% set is_enrolled = adm_no in enrollments.get(subject, set()) %}
+                                <tr class="border-b hover:bg-indigo-50">
+                                    <td class="p-4">{{ student.name }} ({{ adm_no }})</td>
+                                    <td class="p-4 text-center">
+                                        <span class="{% if is_enrolled %}text-green-600 font-bold{% else %}text-red-600{% endif %}">
+                                            {% if is_enrolled %}Yes{% else %}No{% endif %}
+                                        </span>
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <button class="enroll-btn px-6 py-3 rounded-lg text-white font-bold {% if is_enrolled %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %}"
+                                                data-subject="{{ subject }}"
+                                                data-adm-no="{{ adm_no }}"
+                                                data-action="{% if is_enrolled %}unenroll{% else %}enroll{% endif %}">
+                                            {% if is_enrolled %}Unenroll{% else %}Enroll{% endif %}
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.enroll-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const subject = btn.dataset.subject;
+        const adm_no = btn.dataset.admNo;
+        const action = btn.dataset.action;
+
+        const res = await fetch('/teacher/enroll_subject', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+            body: new URLSearchParams({
+                class: '{{ class_name }}',
+                subject: subject,
+                adm_no: adm_no,
+                action: action
+            })
+        });
+
+        if (res.ok) {
+            location.reload();
+        } else {
+            alert('Error occurred');
+        }
+    });
+});
+</script>

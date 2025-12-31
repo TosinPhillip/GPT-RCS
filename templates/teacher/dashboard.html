@@ -24,13 +24,7 @@
                     <div class="text-5xl mb-4">📚</div>
                     <p class="text-lg font-medium text-gray-700">Assigned Subjects</p>
                     <p class="text-4xl font-bold text-indigo-700 mt-4">{{ assigned_subjects_count }}</p>
-                    <p class="text-sm text-gray-600 mt-2">
-                        {% if assigned_subjects_count == 0 %}
-                            No subjects assigned yet
-                        {% else %}
-                            Active for this term
-                        {% endif %}
-                    </p>
+                   
                 </div>
         
                 <div class="bg-gradient-to-br from-green-50 to-teal-100 rounded-xl p-8">
@@ -69,19 +63,24 @@
             </div>
         
             <!-- Optional: List Assigned Subjects -->
-            {% if assigned_subjects_count > 0 %}
-                <div class="mt-10">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4 text-center">Your Assigned Subjects</h3>
-                    <ul class="space-y-3 max-w-2xl mx-auto">
-                        {% for sa in assigned_subjects %}
-                            <li class="bg-indigo-50 p-4 rounded-lg text-center">
-                                <strong>{{ sa.subject }}</strong> in {{ sa.class }}
-                            </li>
-                        {% endfor %}
-                    </ul>
+             <p class="text-sm text-gray-600 mt-2">
+                        {% if assigned_subjects_count > 0 %}
+                            <div class="mt-10">
+                                <h3 class="text-xl font-semibold text-gray-800 mb-4 text-center">Your Assigned Subjects</h3>
+                                <ul class="space-y-3 max-w-2xl mx-auto">
+                                    {% for sa in assigned_subjects %}
+                                        <li class="bg-indigo-50 p-4 rounded-lg">
+                                            <a href="{{ url_for('teacher.subject_detail', subject=sa.subject, class_name=sa.class) }}" class="block hover:bg-indigo-100 transition">
+                                                <strong>{{ sa.subject }}</strong> in {{ sa.class }}
+                                            </a>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    </p>
                 </div>
-            {% endif %}
-        </div>
+                
 
     <!-- Info Card -->
     <!--

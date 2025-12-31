@@ -66,6 +66,11 @@ def dashboard():
     }))
 
     assigned_subjects_count = len(subject_assignments)
+    assigned_subjects = list(mongo.subject_assignments.find({
+    'teacher_email': teacher_email,
+    'session': teacher_session,
+    'term': teacher_term
+}).sort('subject', 1))
 
     # Fetch class teacher assignment
     class_assignment = mongo.class_assignments.find_one({
@@ -202,3 +207,241 @@ def class_teacher_update():
             upsert=True
         )
     return jsonify({'status': 'success'})
+
+    # New Route: Subject Detail Page (List Students, Enroll, Enter Scores)
+@teacher_bp.route('/subject/<subject>/<class_name>')
+@teacher_required
+def subject_detail(subject, class_name):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    teacher = mongo.teachers.find_one({'email': teacher_email})
+    # Verify teacher is assigned to this subject/class
+    assignment = mongo.subject_assignments.find_one({
+        'teacher_email': teacher_email,
+        'subject': subject,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('You are not assigned to this subject or class', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Fetch all students in this class (from admin enrollment — assume students have 'class', 'session')
+    students = list(mongo.students.find({
+        'class': class_name,
+        'session': session_val  # Assume students have session field; adjust if not
+    }).sort('name', 1))
+
+    # Fetch or create enrollment doc
+    enrollment_doc = mongo.subject_enrollments.find_one({
+        'subject': subject,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not enrollment_doc:
+        enrollment_doc = {
+            'subject': subject,
+            'class': class_name,
+            'session': session_val,
+            'term': term,
+            'enrolled_students': [],
+            'date_updated': datetime.utcnow()
+        }
+        mongo.subject_enrollments.insert_one(enrollment_doc)
+
+    enrolled = set(enrollment_doc['enrolled_students'])
+
+    # Fetch existing scores for enrolled students (for display/edit)
+    scores = {}
+    for student in students:
+        adm_no = student['admission_number']
+        if adm_no in enrolled:
+            result = mongo.results.find_one({
+                'admission_number': adm_no,
+                'subject': subject,
+                'session': session_val,
+                'term': term
+            })
+            if not result:
+                result = create_default_result(adm_no, subject, class_name, session_val, term)  # Function below
+            scores[adm_no] = result
+
+    return render_template(
+        'teacher/subject_detail.html',
+        subject=subject,
+        class_name=class_name,
+        students=students,
+        enrolled=enrolled,
+        scores=scores,
+        term=term,
+        teacher=teacher
+    )
+
+# Helper Function: Create Default Result Doc (with auto-pull for Third Term)
+def create_default_result(adm_no, subject, class_name, session_val, term):
+    result = {
+        'admission_number': adm_no,
+        'subject': subject,
+        'class': class_name,
+        'session': session_val,
+        'term': term,
+        'ca1': 0,
+        'ca2': 0,
+        'exam': 0,
+        'total': 0,
+        'position': None,
+        'class_average': None,
+        'date_updated': datetime.utcnow()
+    }
+
+    if term == 'Third':
+        # Auto-pull First Term
+        first = mongo.results.find_one({
+            'admission_number': adm_no,
+            'subject': subject,
+            'session': session_val,
+            'term': 'First'
+        })
+        result['cumulative1'] = first['total'] if first else 0
+
+        # Auto-pull Second Term
+        second = mongo.results.find_one({
+            'admission_number': adm_no,
+            'subject': subject,
+            'session': session_val,
+            'term': 'Second'
+        })
+        result['cumulative2'] = second['total'] if second else 0
+
+    mongo.results.insert_one(result)
+    return result
+
+# AJAX Route: Enroll/Unenroll Student
+@teacher_bp.route('/enroll_student', methods=['POST'])
+@teacher_required
+def enroll_student():
+    subject = request.form['subject']
+    class_name = request.form['class']
+    adm_no = request.form['adm_no']
+    action = request.form['action']  # 'enroll' or 'unenroll'
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    enrollment = mongo.subject_enrollments.find_one({
+        'subject': subject,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+
+    if enrollment:
+        enrolled = set(enrollment['enrolled_students'])
+
+        if action == 'enroll':
+            if adm_no not in enrolled:
+                enrolled.add(adm_no)
+                # Create default result
+                create_default_result(adm_no, subject, class_name, session_val, term)
+        elif action == 'unenroll':
+            if adm_no in enrolled:
+                enrolled.remove(adm_no)
+                # Optional: Delete result? Or keep for history
+                mongo.results.delete_one({
+                    'admission_number': adm_no,
+                    'subject': subject,
+                    'session': session_val,
+                    'term': term
+                })
+
+        mongo.subject_enrollments.update_one(
+            {'_id': enrollment['_id']},
+            {'$set': {'enrolled_students': list(enrolled)}}
+        )
+
+        return jsonify({'success': True})
+
+    return jsonify({'success': False, 'error': 'Enrollment not found'}), 400
+
+# AJAX Route: Save Scores & Auto-Calculate
+@teacher_bp.route('/save_scores', methods=['POST'])
+@teacher_required
+def save_scores():
+    adm_no = request.form['adm_no']
+    subject = request.form['subject']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    # Fetch result doc
+    result = mongo.results.find_one({
+        'admission_number': adm_no,
+        'subject': subject,
+        'session': session_val,
+        'term': term
+    })
+
+    if result:
+        # Update scores
+        ca1 = float(request.form.get('ca1', 0))
+        ca2 = float(request.form.get('ca2', 0))
+        exam = float(request.form.get('exam', 0))
+
+        total = ca1 + ca2 + exam
+        if term == 'Third':
+            cum1 = float(result.get('cumulative1', 0))
+            cum2 = float(result.get('cumulative2', 0))
+            total = round((cum1 + cum2 + total) / 3, 2)
+
+        # Save updated result
+        mongo.results.update_one(
+            {'_id': result['_id']},
+            {'$set': {
+                'ca1': ca1,
+                'ca2': ca2,
+                'exam': exam,
+                'total': total,
+                'date_updated': datetime.utcnow()
+            }}
+        )
+
+        # Auto-calc class average and positions for the subject
+        update_class_average_and_positions(subject, result['class'], session_val, term)
+
+        return jsonify({'success': True, 'total': total})
+
+    return jsonify({'success': False, 'error': 'Result not found'}), 400
+
+# Helper: Update Average & Positions for All Enrolled in Subject
+def update_class_average_and_positions(subject, class_name, session_val, term):
+    enrollment = mongo.subject_enrollments.find_one({
+        'subject': subject,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+
+    if enrollment:
+        enrolled = enrollment['enrolled_students']
+        results = list(mongo.results.find({
+            'admission_number': {'$in': enrolled},
+            'subject': subject,
+            'session': session_val,
+            'term': term
+        }))
+
+        totals = [r['total'] for r in results]
+        class_avg = round(sum(totals) / len(totals), 2) if totals else 0
+
+        # Sort for positions (descending total)
+        sorted_results = sorted(results, key=lambda r: r['total'], reverse=True)
+        for pos, r in enumerate(sorted_results, 1):
+            mongo.results.update_one(
+                {'_id': r['_id']},
+                {'$set': {
+                    'class_average': class_avg,
+                    'position': pos
+                }}
+            )

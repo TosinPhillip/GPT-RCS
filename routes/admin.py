@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import mongo
 from utils.auth import admin_required
-from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission
+from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
 from bson import ObjectId
 from werkzeug.utils import secure_filename
 import bcrypt
@@ -521,7 +521,7 @@ def create_teacher():
 
     # GET — show form
     # You can pre-fill current session/term or list available ones
-    current_session = "2024/2025"  # Or make dynamic
+    current_session = get_current_context()['session_name']  # Or make dynamic
     terms = ['First', 'Second', 'Third']
 
     return render_template('admin/create_teacher.html',
@@ -533,7 +533,7 @@ def create_teacher():
 @admin_required
 def assign_teachers():
     # Get current or selected term context
-    current_session = "2024/2025"  # Make dynamic later
+    current_session = get_current_context()['session_name']  # Make dynamic later
     terms = ['First', 'Second', 'Third']
     selected_term = request.form.get('term') or request.args.get('term') or terms[0]
 
@@ -544,7 +544,7 @@ def assign_teachers():
     }).sort('name', 1))
 
     # Fetch all classes (assume you have a classes collection or hardcode)
-    classes = ['JSS1A', 'JSS1B', 'JSS2A', 'JSS2B', 'JSS3A', 'SSS1A', 'SSS1B', 'SSS2A', 'SSS3A']  # Update as needed
+    classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']  # Update as needed
 
     # Available subjects
     subjects = ['Mathematics', 'English Language', 'Basic Science', 'Basic Technology',
