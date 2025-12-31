@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Register Students - Admin{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10 text-center">
+            <h1 class="text-4xl font-bold mb-4">Register New Students</h1>
+            <p class="text-xl opacity-90">Add students individually or upload in bulk</p>
+        </div>
+
+        <div class="p-10">
+            <!-- Tabs -->
+            <div class="flex justify-center mb-10 border-b border-gray-200">
+                <button onclick="showTab('single')" id="tab-single" class="tab-btn active px-8 py-4 text-lg font-medium">Single Entry</button>
+                <button onclick="showTab('bulk')" id="tab-bulk" class="tab-btn px-8 py-4 text-lg font-medium">Bulk Upload</button>
+            </div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, msg in messages %}
+                        <div class="alert alert-{{ 'success' if category=='success' else 'danger' if category=='danger' else 'warning' }} mb-8 p-6 rounded-xl text-white">
+                            {{ msg | safe }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <!-- Single Entry Form -->
+            <div id="single-form" class="tab-content">
+                <form method="POST" class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                    <input type="hidden" name="action" value="single">
+                    <div>
+                        <label class="block text-lg font-medium text-gray-700 mb-3">Full Name</label>
+                        <input type="text" name="name" required class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600">
+                    </div>
+                    <div>
+                        <label class="block text-lg font-medium text-gray-700 mb-3">Admission Number</label>
+                        <input type="text" name="admission_number" required class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600">
+                    </div>
+                    <div>
+                        <label class="block text-lg font-medium text-gray-700 mb-3">Class</label>
+                        <input type="text" name="class" required placeholder="e.g. JSS1A" class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600">
+                    </div>
+                    <div>
+                        <label class="block text-lg font-medium text-gray-700 mb-3">Gender</label>
+                        <select name="gender" required class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600">
+                            <option value="">Select</option>
+                            <option value="Male">Male</option>
+                            <option value="Female">Female</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-lg font-medium text-gray-700 mb-3">Date of Birth</label>
+                        <input type="date" name="date_of_birth" required class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600">
+                    </div>
+                    <div>
+                        <label class="block text-lg font-medium text-gray-700 mb-3">Initial Password</label>
+                        <input type="text" name="password" required placeholder="e.g. student123" class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600">
+                    </div>
+                    <div class="md:col-span-2 flex items-center">
+                        <input type="checkbox" name="results_visible" id="visible" checked class="mr-4 h-6 w-6">
+                        <label for="visible" class="text-lg">Results Visible to Student</label>
+                    </div>
+                    <div class="md:col-span-2 text-center">
+                        <button type="submit" class="px-12 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
+                            Register Student
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bulk Upload Form -->
+            <div id="bulk-form" class="tab-content hidden">
+                <form method="POST" enctype="multipart/form-data" class="max-w-2xl mx-auto text-center">
+                    <input type="hidden" name="action" value="bulk">
+                    <div class="border-4 border-dashed border-indigo-300 rounded-2xl p-12 mb-8">
+                        <div class="text-6xl mb-6">📄</div>
+                        <p class="text-xl text-gray-600 mb-6">Upload a CSV file with student records</p>
+                        <input type="file" name="file" accept=".csv" required class="block w-full text-lg">
+                        <p class="text-sm text-gray-500 mt-6">
+                            <strong>Required columns (exact spelling):</strong><br>
+                            name, class, gender, admission_number, date_of_birth (YYYY-MM-DD), password<br><br>
+                            <strong>Optional:</strong> results_visible (TRUE/FALSE, default: TRUE)<br><br>
+                            <a href="#" class="text-indigo-600 underline" onclick="alert('1. Open Excel\n2. Enter data with headers\n3. File → Save As → CSV UTF-8\n4. Upload here')">How to create CSV from Excel →</a>
+                        </p>
+                    </div>
+                                        <button type="submit" class="px-12 py-5 bg-purple-700 hover:bg-purple-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
+                        Upload & Register Students
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById(tab + '-form').classList.remove('hidden');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+</script>
+
+<style>
+.tab-btn { border-bottom: 4px solid transparent; }
+.tab-btn.active { border-bottom: 4px solid #6366f1; color: #6366f1; font-weight: bold; }
+</style>
+{% endblock %}

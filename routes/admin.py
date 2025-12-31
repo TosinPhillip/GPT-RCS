@@ -1,10 +1,14 @@
 # routes/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from extensions import mongo
 from utils.auth import admin_required
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission
 from bson import ObjectId
+from werkzeug.utils import secure_filename
 import bcrypt
+import os
+import csv
+from io import StringIO
 from datetime import datetime
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -12,6 +16,15 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 # Hardcoded admin (consider moving to DB later)
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD_HASH = bcrypt.hashpw("gptschool2025".encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+UPLOAD_FOLDER = 'uploads/'
+ALLOWED_EXTENSIONS = {'xlsx', 'csv'}
+
+# Ensure upload folder exists
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Global class list (can be moved to collection later)
 classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
@@ -312,4 +325,311 @@ def promote_students():
         current_session=current_session,
         next_session_name=next_session_name,
         all_sessions=all_sessions
+    )
+
+
+@admin_bp.route('/students/register', methods=['GET', 'POST'])
+@admin_required
+def register_students():
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        # ===================== SINGLE STUDENT =====================
+        if action == 'single':
+            try:
+                adm_no = request.form['admission_number'].strip()
+                if mongo.students.find_one({'admission_number': adm_no}):
+                    flash('Admission number already exists', 'danger')
+                    return redirect(url_for('admin.register_students'))
+
+                dob = datetime.strptime(request.form['date_of_birth'], '%Y-%m-%d').date()
+
+                student_data = {
+                    'name': request.form['name'].strip().title(),
+                    'class': request.form['class'].strip().upper(),
+                    'gender': request.form['gender'].strip().title(),
+                    'admission_number': adm_no,
+                    'date_of_birth': dob,
+                    'password': hash_password(request.form['password'].strip()),
+                    'results_visible': request.form.get('results_visible') == 'on',
+                    'date_registered': datetime.utcnow()
+                }
+
+                mongo.students.insert_one(student_data)
+                flash(f'Student "{student_data["name"]}" registered successfully!', 'success')
+
+            except ValueError:
+                flash('Invalid date format', 'danger')
+            except Exception as e:
+                flash(f'Error: {str(e)}', 'danger')
+
+            return redirect(url_for('admin.register_students'))
+
+        # ===================== BULK CSV UPLOAD =====================
+        elif action == 'bulk':
+            if 'file' not in request.files:
+                flash('No file selected', 'danger')
+                return redirect(url_for('admin.register_students'))
+
+            file = request.files['file']
+            if file.filename == '':
+                flash('No file selected', 'danger')
+                return redirect(url_for('admin.register_students'))
+
+            if not file.filename.lower().endswith('.csv'):
+                flash('Only CSV files are allowed', 'danger')
+                return redirect(url_for('admin.register_students'))
+
+            try:
+                # Read entire content safely
+                raw_content = file.read().decode('utf-8-sig')
+                if not raw_content.strip():
+                    flash('Uploaded CSV file is empty', 'danger')
+                    return redirect(url_for('admin.register_students'))
+
+                stream = StringIO(raw_content)
+                reader = csv.DictReader(stream)
+
+                if reader.fieldnames is None:
+                    flash('Invalid CSV format – no headers found', 'danger')
+                    return redirect(url_for('admin.register_students'))
+
+                # Normalize header names
+                headers = [h.strip() for h in reader.fieldnames]
+                required = ['name', 'class', 'gender', 'admission_number', 'date_of_birth', 'password']
+                missing = [col for col in required if col not in headers]
+                if missing:
+                    flash(f'Missing required columns: {", ".join(missing)}', 'danger')
+                    return redirect(url_for('admin.register_students'))
+
+                success_count = 0
+                errors = []
+                row_number = 1  # Start after header
+
+                for row in reader:
+                    row_number += 1
+                    try:
+                        # Safe access with stripped keys
+                        get_val = lambda key: row.get(key.strip(), '').strip() if row else ''
+
+                        adm_no = get_val('admission_number')
+                        if not adm_no:
+                            errors.append(f"Row {row_number}: Admission number missing")
+                            continue
+                        if mongo.students.find_one({'admission_number': adm_no}):
+                            errors.append(f"Row {row_number}: Admission {adm_no} already exists")
+                            continue
+
+                        name = get_val('name')
+                        if not name:
+                            errors.append(f"Row {row_number}: Name missing")
+                            continue
+
+                        password = get_val('password')
+                        if not password:
+                            errors.append(f"Row {row_number}: Password missing")
+                            continue
+
+                        dob_str = get_val('date_of_birth')
+                        try:
+                            dob = datetime.strptime(dob_str, '%Y-%m-%d').date()
+                        except ValueError:
+                            errors.append(f"Row {row_number}: Invalid date '{dob_str}' (use YYYY-MM-DD)")
+                            continue
+
+                        student_data = {
+                            'name': name.title(),
+                            'class': get_val('class').upper(),
+                            'gender': get_val('gender').title(),
+                            'admission_number': adm_no,
+                            'date_of_birth': dob,
+                            'password': hash_password(password),
+                            'results_visible': get_val('results_visible').upper() in ['TRUE', '1', 'YES', 'ON', 'Y'],
+                            'date_registered': datetime.utcnow()
+                        }
+
+                        mongo.students.insert_one(student_data)
+                        success_count += 1
+
+                    except Exception as e:
+                        errors.append(f"Row {row_number}: {str(e)}")
+
+                # === Final Flash Messages ===
+                if success_count:
+                    flash(f'✅ Successfully registered {success_count} student(s)!', 'success')
+
+                if errors:
+                    error_msg = f'⚠️ {len(errors)} row(s) failed:<br>' + '<br>'.join(errors[:12])
+                    flash(error_msg, 'warning')
+
+                if not success_count and not errors:
+                    flash('No valid student records found in CSV', 'warning')
+
+            except UnicodeDecodeError:
+                flash('File must be saved as UTF-8 CSV', 'danger')
+            except csv.Error as e:
+                flash(f'CSV parsing error: {str(e)}', 'danger')
+            except Exception as e:
+                flash(f'Unexpected error processing file: {str(e)}', 'danger')
+
+            return redirect(url_for('admin.register_students'))
+
+    # GET — show registration page
+    return render_template('admin/register_students.html')
+
+
+@admin_bp.route('/teachers/create', methods=['GET', 'POST'])
+@admin_required
+def create_teacher():
+    if request.method == 'POST':
+        name = request.form['name'].strip().title()
+        email = request.form['email'].strip().lower()
+        phone = request.form['phone'].strip()
+        session_val = request.form['session']
+        term = request.form['term']
+
+        # Validation
+        if not all([name, email, phone, session_val, term]):
+            flash('All fields are required', 'danger')
+            return redirect(url_for('admin.create_teacher'))
+
+        # Check if teacher already exists for this session + term
+        existing = mongo.teachers.find_one({
+            'email': email,
+            'session': session_val,
+            'term': term
+        })
+        if existing:
+            flash(f'Teacher {name} already has a profile for {term} Term, {session_val}', 'danger')
+            return redirect(url_for('admin.create_teacher'))
+
+        # Insert new teacher profile
+        teacher_data = {
+            'name': name,
+            'email': email,
+            'phone': phone,
+            'session': session_val,
+            'term': term,
+            'date_created': datetime.utcnow(),
+            'created_by': session.get('admin_name', 'admin')  # if you track admin
+        }
+
+        mongo.teachers.insert_one(teacher_data)
+        flash(f'Teacher "{name}" successfully created for {term} Term!', 'success')
+
+        return redirect(url_for('admin.create_teacher'))
+
+    # GET — show form
+    # You can pre-fill current session/term or list available ones
+    current_session = "2024/2025"  # Or make dynamic
+    terms = ['First', 'Second', 'Third']
+
+    return render_template('admin/create_teacher.html',
+                           current_session=current_session,
+                           terms=terms)
+
+
+@admin_bp.route('/teachers/assign', methods=['GET', 'POST'])
+@admin_required
+def assign_teachers():
+    # Get current or selected term context
+    current_session = "2024/2025"  # Make dynamic later
+    terms = ['First', 'Second', 'Third']
+    selected_term = request.form.get('term') or request.args.get('term') or terms[0]
+
+    # Fetch all active teachers for this term
+    teachers = list(mongo.teachers.find({
+        'session': current_session,
+        'term': selected_term
+    }).sort('name', 1))
+
+    # Fetch all classes (assume you have a classes collection or hardcode)
+    classes = ['JSS1A', 'JSS1B', 'JSS2A', 'JSS2B', 'JSS3A', 'SSS1A', 'SSS1B', 'SSS2A', 'SSS3A']  # Update as needed
+
+    # Available subjects
+    subjects = ['Mathematics', 'English Language', 'Basic Science', 'Basic Technology',
+                'Social Studies', 'Civic Education', 'Physical Education', 'Biology',
+                'Chemistry', 'Physics', 'Literature', 'Government', 'Economics']
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+        teacher_email = request.form.get('teacher_email')
+        term = request.form.get('term')
+        session_val = current_session
+
+        if action == 'assign_subject':
+            subject = request.form.get('subject')
+            class_name = request.form.get('class')
+
+            if not all([teacher_email, subject, class_name]):
+                flash('All fields required for subject assignment', 'danger')
+            else:
+                # Check if already assigned
+                existing = mongo.subject_assignments.find_one({
+                    'teacher_email': teacher_email,
+                    'subject': subject,
+                    'class': class_name,
+                    'session': session_val,
+                    'term': term
+                })
+                if existing:
+                    flash(f'{subject} already assigned to this teacher in {class_name}', 'warning')
+                else:
+                    mongo.subject_assignments.insert_one({
+                        'teacher_email': teacher_email,
+                        'subject': subject,
+                        'class': class_name,
+                        'session': session_val,
+                        'term': term,
+                        'date_assigned': datetime.utcnow()
+                    })
+                    flash(f'{subject} assigned successfully in {class_name}', 'success')
+
+        elif action == 'assign_class_teacher':
+            class_name = request.form.get('class')
+
+            if not all([teacher_email, class_name]):
+                flash('Select teacher and class', 'danger')
+            else:
+                # Remove any previous class teacher for this class/term
+                mongo.class_assignments.delete_many({
+                    'class': class_name,
+                    'session': session_val,
+                    'term': term
+                })
+                # Assign new
+                mongo.class_assignments.insert_one({
+                    'class': class_name,
+                    'teacher_email': teacher_email,
+                    'session': session_val,
+                    'term': term,
+                    'date_assigned': datetime.utcnow()
+                })
+                flash(f'Class teacher assigned for {class_name}', 'success')
+
+        return redirect(url_for('admin.assign_teachers', term=term))
+
+    # GET — show assignment page
+    # Fetch current assignments for display
+    subject_assignments = list(mongo.subject_assignments.find({
+        'session': current_session,
+        'term': selected_term
+    }))
+
+    class_assignments = list(mongo.class_assignments.find({
+        'session': current_session,
+        'term': selected_term
+    }))
+    class_teacher_map = {ca['class']: ca['teacher_email'] for ca in class_assignments}
+
+    return render_template(
+        'admin/assign_teachers.html',
+        teachers=teachers,
+        classes=classes,
+        subjects=subjects,
+        current_session=current_session,
+        selected_term=selected_term,
+        terms=terms,
+        subject_assignments=subject_assignments,
+        class_teacher_map=class_teacher_map
     )

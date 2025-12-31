@@ -23,7 +23,9 @@
                 <select id="session-select" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 transition">
                     <option value="">Select Session</option>
                     {% for session in sessions %}
-                        <option value="{{ session.name }}">{{ session.name }}</option>
+                        <option value="{{ session }}" {% if session == selected_session %}selected{% endif %}>
+                            {{ session }}
+                        </option>
                     {% endfor %}
                 </select>
             </div>
@@ -34,7 +36,7 @@
                 <select id="term-select" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-xl focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 transition">
                     <option value="">Select Term</option>
                     {% for term in terms %}
-                        <option value="{{ term.name }}">{{ term.name }}</option>
+                        <option value="{{ term }}">{{ term }} Term</option>
                     {% endfor %}
                 </select>
             </div>
@@ -88,7 +90,22 @@
             if (data.results && data.results.length > 0) {
                 const result = data.results[0];
 
-                let grandTotal = 0;
+                // Use backend-calculated values (most reliable)
+                const grandTotal   = result.grand_total || 0;
+                const average      = result.average || 0;
+                const classAverage = result.class_average ? result.class_average.toFixed(2) : 'N/A';
+                const overallPos   = result.overall_position || 'N/A';
+
+                let teacherCommentHtml = '';
+                if (result.teacher_comment) {
+                    teacherCommentHtml = `
+                        <div class="bg-yellow-50 border-l-8 border-yellow-500 p-6 mx-8 my-8 rounded-r-lg">
+                            <p class="text-lg font-semibold text-gray-800 mb-2">Teacher's Comment:</p>
+                            <p class="text-gray-700 italic">"${result.teacher_comment.replace(/"/g, '&quot;')}"</p>
+                        </div>
+                    `;
+                }
+
                 let subjectsHtml = `
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -99,7 +116,6 @@
                                 <th class="p-6 text-center font-semibold text-gray-800">Exam</th>
                 `;
 
-                // Add Cumulative columns only for Third Term — using JS variable 'term'
                 if (term === 'Third') {
                     subjectsHtml += `
                         <th class="p-6 text-center font-semibold text-gray-800">Cumulative 1</th>
@@ -116,18 +132,16 @@
                 `;
 
                 result.subjects.forEach(sub => {
-                    const ca1 = sub.ca1 || 0;
-                    const ca2 = sub.ca2 || 0;
+                    const ca1  = sub.ca1 || 0;
+                    const ca2  = sub.ca2 || 0;
                     const exam = sub.exam || 0;
                     const cum1 = sub.cumulative1 || 0;
                     const cum2 = sub.cumulative2 || 0;
 
                     let subjectTotal = ca1 + ca2 + exam;
                     if (term === 'Third') {
-                        subjectTotal = Math.round((cum1 + cum2 + (ca1 + ca2 + exam)) / 3 * 100) / 100;
+                        subjectTotal = Math.round((cum1 + cum2 + ca1 + ca2 + exam) / 3 * 100) / 100;
                     }
-
-                    grandTotal += subjectTotal;
 
                     subjectsHtml += `
                         <tr class="border-b hover:bg-indigo-50 transition">
@@ -153,20 +167,6 @@
 
                 subjectsHtml += `</tbody></table>`;
 
-                const average = (grandTotal / result.subjects.length).toFixed(2);
-                const classAverage = result.class_average ? result.class_average.toFixed(2) : 'N/A';
-
-                // Teacher comment — safe client-side check
-                let teacherCommentHtml = '';
-                if (result.teacher_comment) {
-                    teacherCommentHtml = `
-                        <div class="bg-yellow-50 border-l-8 border-yellow-500 p-6 mx-8 my-8 rounded-r-lg">
-                            <p class="text-lg font-semibold text-gray-800 mb-2">Teacher's Comment:</p>
-                            <p class="text-gray-700 italic">"${result.teacher_comment}"</p>
-                        </div>
-                    `;
-                }
-
                 resultsContainer.innerHTML = `
                     <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
                         <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-10 text-center">
@@ -175,17 +175,14 @@
                                 <div><p class="text-lg opacity-90">Total Score</p><p class="text-4xl font-bold mt-2">${grandTotal.toFixed(2)}</p></div>
                                 <div><p class="text-lg opacity-90">Average</p><p class="text-4xl font-bold mt-2">${average}</p></div>
                                 <div><p class="text-lg opacity-90">Class Average</p><p class="text-4xl font-bold mt-2">${classAverage}</p></div>
-                                <div><p class="text-lg opacity-90">Overall Position</p><p class="text-4xl font-bold mt-2">${result.overall_position || 'N/A'}</p></div>
+                                <div><p class="text-lg opacity-90">Overall Position</p><p class="text-4xl font-bold mt-2">${overallPos}</p></div>
                             </div>
                         </div>
-
                         ${teacherCommentHtml}
-
                         <div class="p-8">
                             <h4 class="text-2xl font-bold text-gray-800 mb-8 text-center">Subject Performance</h4>
                             ${subjectsHtml}
                         </div>
-
                         <div class="p-8 text-center bg-gray-50">
                             <button onclick="window.print()" class="px-8 py-4 bg-indigo-700 hover:bg-indigo-600 text-white text-lg font-bold rounded-xl transition shadow-lg">
                                 🖨️ Print or Save as PDF

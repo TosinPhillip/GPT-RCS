@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-purple-700 to-indigo-700 text-white p-10 text-center">
+            <h1 class="text-4xl font-bold mb-4">Assign Teachers</h1>
+            <p class="text-xl opacity-90">{{ current_session }} • {{ selected_term }} Term</p>
+        </div>
+
+        <div class="p-10">
+            <!-- Term Selector -->
+            <div class="max-w-xs mx-auto mb-10">
+                <form method="GET">
+                    <select name="term" onchange="this.form.submit()" class="w-full px-6 py-4 border border-gray-300 rounded-xl">
+                        {% for t in terms %}
+                            <option value="{{ t }}" {% if t == selected_term %}selected{% endif %}>{{ t }} Term</option>
+                        {% endfor %}
+                    </select>
+                </form>
+            </div>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, msg in messages %}
+                        <div class="alert alert-{{ 'success' if category=='success' else 'danger' if category=='danger' else 'warning' }} mb-8 p-6 rounded-xl text-white">
+                            {{ msg }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                <!-- Assign Subject Teacher -->
+                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Assign Subject Teacher</h2>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="assign_subject">
+                        <input type="hidden" name="term" value="{{ selected_term }}">
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-lg font-medium text-gray-700 mb-3">Teacher</label>
+                                <select name="teacher_email" required class="w-full px-6 py-4 border rounded-xl">
+                                    <option value="">Select Teacher</option>
+                                    {% for t in teachers %}
+                                        <option value="{{ t.email }}">{{ t.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-lg font-medium text-gray-700 mb-3">Subject</label>
+                                <select name="subject" required class="w-full px-6 py-4 border rounded-xl">
+                                    <option value="">Select Subject</option>
+                                    {% for s in subjects %}
+                                        <option value="{{ s }}">{{ s }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-lg font-medium text-gray-700 mb-3">Class</label>
+                                <select name="class" required class="w-full px-6 py-4 border rounded-xl">
+                                    <option value="">Select Class</option>
+                                    {% for c in classes %}
+                                        <option value="{{ c }}">{{ c }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="px-10 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
+                                    Assign Subject
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Assign Class Teacher -->
+                <div class="bg-gradient-to-br from-green-50 to-teal-50 rounded-2xl p-8">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Assign Class Teacher</h2>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="assign_class_teacher">
+                        <input type="hidden" name="term" value="{{ selected_term }}">
+                        <div class="space-y-6">
+                            <div>
+                                <label class="block text-lg font-medium text-gray-700 mb-3">Teacher</label>
+                                <select name="teacher_email" required class="w-full px-6 py-4 border rounded-xl">
+                                    <option value="">Select Teacher</option>
+                                    {% for t in teachers %}
+                                        <option value="{{ t.email }}">{{ t.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-lg font-medium text-gray-700 mb-3">Class</label>
+                                <select name="class" required class="w-full px-6 py-4 border rounded-xl">
+                                    <option value="">Select Class</option>
+                                    {% for c in classes %}
+                                        <option value="{{ c }}" {% if class_teacher_map.get(c) %}disabled{% endif %}>
+                                            {{ c }} {% if class_teacher_map.get(c) %}(Assigned){% endif %}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="text-center">
+                                <button type="submit" class="px-10 py-5 bg-teal-700 hover:bg-teal-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
+                                    Assign Class Teacher
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Current Assignments Summary -->
+<!-- Current Assignments Summary -->
+<div class="mt-16 bg-gray-50 rounded-2xl p-8">
+    <h3 class="text-2xl font-bold text-gray-800 mb-8 text-center">Current Assignments</h3>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <!-- Subject Assignments -->
+        <div>
+            <h4 class="text-xl font-semibold mb-4 text-indigo-700">Subject Assignments</h4>
+            {% if subject_assignments %}
+                <ul class="space-y-3">
+                    {% for sa in subject_assignments %}
+                        {% set teacher_email = sa.teacher_email %}
+                        {% set teacher = teachers | selectattr('email', 'equalto', teacher_email) | first or {'name': 'Unknown Teacher'} %}
+                        <li class="bg-white p-4 rounded-lg shadow">
+                            <strong>{{ teacher.name }}</strong> → {{ sa.subject }} in {{ sa.class }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-gray-600 text-center py-8">No subject assignments yet</p>
+            {% endif %}
+        </div>
+
+        <!-- Class Teachers -->
+        <div>
+            <h4 class="text-xl font-semibold mb-4 text-teal-700">Class Teachers</h4>
+            {% if class_teacher_map %}
+                <ul class="space-y-3">
+                    {% for class_name, email in class_teacher_map.items() %}
+                        {% set teacher = teachers | selectattr('email', 'equalto', email) | first or {'name': 'Unknown Teacher'} %}
+                        <li class="bg-white p-4 rounded-lg shadow">
+                            {{ class_name }} → <strong>{{ teacher.name }}</strong>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-gray-600 text-center py-8">No class teachers assigned</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+        </div>
+    </div>
+</div>
+{% endblock %}

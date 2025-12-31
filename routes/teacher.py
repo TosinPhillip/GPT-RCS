@@ -15,53 +15,73 @@ teacher_bp = Blueprint('teacher', __name__, url_prefix='/teacher')
 @teacher_bp.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password'].encode('utf-8')
-        user = mongo.users.find_one({'username': username, 'role': 'teacher'})
-        if user and bcrypt.checkpw(password, user['password'].encode('utf-8')):
-            sesh['user_id'] = str(user['_id'])
+        email = request.form['email'].strip().lower()
+        phone_password = request.form['password'].strip()  # Phone number as password
+
+        teacher = mongo.teachers.find_one({'email': email})
+
+        if teacher and teacher['phone'] == phone_password:
+            sesh['teacher_email'] = teacher['email']
+            sesh['teacher_name'] = teacher['name']
+            sesh['teacher_session'] = teacher['session']
+            sesh['teacher_term'] = teacher['term']
             sesh['role'] = 'teacher'
-            sesh['username'] = username
             return redirect(url_for('teacher.dashboard'))
-        flash('Invalid credentials', 'error')
+
+        flash('Invalid email or phone number (password)', 'error')
+
     return render_template('teacher/login.html')
+
 # ==================== LOGOUT ====================
 @teacher_bp.route('/logout')
 def logout():
     sesh.clear()
     return redirect(url_for('teacher.login'))
 # ==================== DASHBOARD ====================
+# routes/teacher.py
+
 @teacher_bp.route('/dashboard')
 @teacher_required
 def dashboard():
-    teacher_id = ObjectId(sesh['user_id'])
-    ctx = get_current_context()  # Active session/term
+    teacher_email = sesh['teacher_email']
+    teacher_session = sesh['teacher_session']
+    teacher_term = sesh['teacher_term']
 
-    # Subject assignments in active session
-    assignments = list(mongo.teacher_assignments.find({
-        'teacher_id': teacher_id,
-        'session': ctx['session_name']
+    # Fetch teacher profile
+    teacher = mongo.teachers.find_one({
+        'email': teacher_email,
+        'session': teacher_session,
+        'term': teacher_term
+    })
+
+    if not teacher:
+        flash('Teacher profile not found for current term.', 'error')
+        return redirect(url_for('teacher.logout'))
+
+    # Fetch subject assignments
+    subject_assignments = list(mongo.subject_assignments.find({
+        'teacher_email': teacher_email,
+        'session': teacher_session,
+        'term': teacher_term
     }))
 
-    session_map = {}
-    for a in assignments:
-        session_map.setdefault(ctx['session_name'], []).append({
-            'class': a['class'],
-            'subject': a['subject']
-        })
+    assigned_subjects_count = len(subject_assignments)
 
-    # Class teacher role in active session
-    class_assignment = list(mongo.class_teachers.find({
-        'teacher_id': teacher_id,
-        'session': ctx['session_name']
-    }))
+    # Fetch class teacher assignment
+    class_assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'session': teacher_session,
+        'term': teacher_term
+    })
+    class_teacher_of = class_assignment['class'] if class_assignment else None
 
+    # Optional: Pass full lists if you want to display them
     return render_template(
         'teacher/dashboard.html',
-        session_name=ctx['session_name'],
-        term=ctx['term'],
-        session_map=session_map,
-        class_assignment=class_assignment  # {'class': 'JSS1'} or None
+        teacher=teacher,
+        assigned_subjects_count=assigned_subjects_count,
+        assigned_subjects=subject_assignments,  # List of dicts for display
+        class_teacher_of=class_teacher_of
     )
 # ==================== UPLOAD RESULT ====================
 # New Form for Scores (per student, but we'll use dynamic in template)
