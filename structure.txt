@@ -22,8 +22,8 @@ gpt-school-results/
 2. Students can print thier PDF
 3. The former results are filled in-place when a teacher pulls up the result sheet
 4. The class-teacher' page contains a more realistic way of assessing their students
-5. The admin can control the students seen in a particular session
-6. Create teacher accounts with thier emails instead
+
+
 
 
 
@@ -60,16 +60,7 @@ Students
 
 
 
-3. **Update Student Registration/Enrollment Workflow**  
-   - Admin → "Enroll Students" page filtered to active session.  
-   - Search by admission number: if exists → auto-fill core details + past results; if new → create fresh profile.  
-   - Assign class and optional subjects for this session only.  
-   - Auto-mark previous session enrollments as inactive/alumni.
 
-4. **Refactor All Views to Use Active Session/Term Context**  
-   - Teacher dashboard, subject upload, class teacher form → auto-filter students, assignments, results to active session/term.  
-   - Admin student list → default to active session, with option to view past sessions.  
-   - Student/alumni portal → require selecting a past session to view old results (current blocked if fees/offence).
 
 5. **Implement Bulk Promotion at Session End**  
    - Admin tool: "Promote Students" → select class or individual → auto-create enrollments in next session with incremented class (e.g., JSS3 → SSS1).  
@@ -80,16 +71,8 @@ Students
    - Visibility block remains per-student (overrides session).  
    - Alumni access old sessions read-only.
 
-7. **Add Session Switcher for Historical Views**  
-   - Admin & student portals get a dropdown to view past sessions (read-only for results).  
-   - Keeps current workflow focused on active session.
 
 8. **Testing & Migration**  
    - Create a migration script to move existing data into session-specific structures (e.g., assume current data belongs to "2024/2025").  
    - Test thoroughly: upload new term → promote → start new session → verify old results still accessible.
 
-This overhaul keeps the UI sleek (active context always clear), workflows smooth (no manual session switching in daily use), and eliminates the "universal student list" problem forever. Historical integrity preserved, current operations clean.
-
-We can start with **Step 1 & 2** (data model + session creation page) — they form the foundation and give immediate clarity to the admin.
-
-Ready when you are — just say "let's code Step 1" or whichever you prefer! 🙏✨

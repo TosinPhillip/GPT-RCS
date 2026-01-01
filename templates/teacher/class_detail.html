@@ -1,3 +1,5 @@
+{% extends "base.html" %}
+{% block content %}
 <div class="max-w-7xl mx-auto mt-12 px-4">
     <div class="bg-white rounded-2xl shadow-2xl p-10">
         <h2 class="text-3xl font-bold text-gray-800 mb-6">{{ class_name }} - {{ term }} Term</h2>
@@ -17,7 +19,7 @@
                         <tbody>
                             {% for student in students %}
                                 {% set adm_no = student.admission_number %}
-                                {% set is_enrolled = adm_no in enrollments.get(subject, set()) %}
+                                {% set is_enrolled = adm_no in enrollments.get(subject, []) %}
                                 <tr class="border-b hover:bg-indigo-50">
                                     <td class="p-4">{{ student.name }} ({{ adm_no }})</td>
                                     <td class="p-4 text-center">
@@ -69,3 +71,4 @@ document.querySelectorAll('.enroll-btn').forEach(btn => {
     });
 });
 </script>
+{% endblock %}

@@ -113,7 +113,7 @@ def enroll_students():
     ctx = get_current_context()
     current_enrollments = get_active_enrollments()
     return render_template(
-        'admin/enroll_students.html',
+        'admin/term_enrollment.html',
         current_enrollments=current_enrollments,
         ctx=ctx,
         classes=classes  # Pass for dropdown
@@ -632,4 +632,63 @@ def assign_teachers():
         terms=terms,
         subject_assignments=subject_assignments,
         class_teacher_map=class_teacher_map
+    )
+
+@admin_bp.route('/term_enrollment', methods=['GET', 'POST'])
+@admin_required
+def term_enrollment():
+    current_session = get_current_context()['session_name']  # Make dynamic later
+    terms = ['First', 'Second', 'Third']
+    classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
+
+    selected_term = request.form.get('term') or request.args.get('term') or 'First'
+
+    if request.method == 'POST':
+        selected_students = request.form.getlist('student_select')  # admission numbers
+        selected_class = request.form['class']
+
+        enrolled_count = 0
+        for adm_no in selected_students:
+            student = mongo.students.find_one({'admission_number': adm_no})
+            if student:
+                # Upsert into term_enrollments
+                mongo.term_enrollments.update_one(
+                    {
+                        'admission_number': adm_no,
+                        'session': current_session,
+                        'term': selected_term
+                    },
+                    {'$set': {
+                        'name': student['name'],
+                        'class': selected_class,
+                        'session': current_session,
+                        'term': selected_term,
+                        'date_enrolled': datetime.utcnow()
+                    }},
+                    upsert=True
+                )
+                enrolled_count += 1
+
+        flash(f'Successfully enrolled {enrolled_count} students in {selected_class} for {selected_term} Term!', 'success')
+        return redirect(url_for('admin.term_enrollment', term=selected_term))
+
+    # GET — show all students from master list
+    all_students = list(mongo.students.find().sort('name', 1))
+
+    # Currently enrolled in selected term
+    enrolled_adms = set(
+        doc['admission_number'] for doc in mongo.term_enrollments.find({
+            'session': current_session,
+            'term': selected_term
+        })
+    )
+
+    return render_template(
+        'admin/term_enrollment.html',
+        students=all_students,
+        enrolled_adms=enrolled_adms,
+        classes=classes,
+        current_session=current_session,
+        selected_term=selected_term,
+        terms=terms
     )

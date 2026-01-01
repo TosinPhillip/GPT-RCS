@@ -98,18 +98,7 @@ class ScoreForm(FlaskForm):
     cumulative2 = IntegerField('Cumulative Second Term', validators=[NumberRange(0, 100)])
     term = SelectField('Term', validators=[DataRequired()])
     submit = SubmitField('Save Scores')
-# routes/teacher.py
-@teacher_bp.route('/api/students')
-@teacher_required
-def api_students():
-    cls = request.args.get('class')
-    if not cls:
-        return jsonify([])
-    students = list(mongo.students.find(
-        {'class': cls},
-        {'admission_number': 1, 'name': 1, '_id': 0}
-    ))
-    return jsonify(students)
+
 
 
 @teacher_bp.route('/upload/<class_>/<subject>')
@@ -230,9 +219,11 @@ def subject_detail(subject, class_name):
         return redirect(url_for('teacher.dashboard'))
 
     # Fetch all students in this class (from admin enrollment — assume students have 'class', 'session')
-    students = list(mongo.students.find({
+    # Replace the students query with:
+    students = list(mongo.term_enrollments.find({
         'class': class_name,
-        'session': session_val  # Assume students have session field; adjust if not
+        'session': session_val,
+        'term': term
     }).sort('name', 1))
 
     # Fetch or create enrollment doc
@@ -269,7 +260,17 @@ def subject_detail(subject, class_name):
             if not result:
                 result = create_default_result(adm_no, subject, class_name, session_val, term)  # Function below
             scores[adm_no] = result
-
+    # Fetch existing scores for pre-fill
+    existing_scores = {}
+    results = list(mongo.results.find({
+        'subject': subject,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }))
+    for r in results:
+        existing_scores[r['admission_number']] = r
+    
     return render_template(
         'teacher/subject_detail.html',
         subject=subject,
@@ -278,7 +279,10 @@ def subject_detail(subject, class_name):
         enrolled=enrolled,
         scores=scores,
         term=term,
-        teacher=teacher
+        teacher=teacher,
+        session=session_val,
+        existing_scores=existing_scores,
+        enrolled_student_ids=enrolled
     )
 
 # Helper Function: Create Default Result Doc (with auto-pull for Third Term)
@@ -413,7 +417,142 @@ def save_scores():
         return jsonify({'success': True, 'total': total})
 
     return jsonify({'success': False, 'error': 'Result not found'}), 400
+    
+# Class Detail — List Students (Clickable Names)
+@teacher_bp.route('/class/<class_name>')
+@teacher_required
+def class_detail(class_name):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
 
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('You are not the class teacher', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Students enrolled in this class for this term
+    students = list(mongo.term_enrollments.find({
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }).sort('name', 1))
+
+    return render_template(
+        'teacher/class_students.html',
+        class_name=class_name,
+        students=students,
+        term=term,
+        session=session_val
+    )
+
+# Student Profile Page — Comment & Psychomotor Ratings
+@teacher_bp.route('/student/<adm_no>')
+@teacher_required
+def student_profile(adm_no):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    student = mongo.students.find_one({'admission_number': adm_no})
+    if not student:
+        flash('Student not found', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Verify teacher is class teacher of this student's class
+    enrollment = mongo.term_enrollments.find_one({
+        'admission_number': adm_no,
+        'session': session_val,
+        'term': term
+    })
+    if not enrollment:
+        flash('Student not enrolled in current term', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': enrollment['class'],
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('You are not the class teacher of this student', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Fetch or create profile
+    profile = mongo.student_term_profiles.find_one({
+        'admission_number': adm_no,
+        'session': session_val,
+        'term': term
+    }) or {}
+
+    results = list(mongo.results.find({
+        'admission_number': adm_no,
+        'session': session_val,
+        'term': term
+    }).sort('subject', 1))
+
+    # Fetch profile for comment/ratings
+    profile = mongo.student_term_profiles.find_one({
+        'admission_number': adm_no,
+        'session': session_val,
+        'term': term
+    }) or {}
+
+    psychomotor_fields = [
+        'punctuality', 'neatness', 'honesty', 'leadership',
+        'politeness', 'teamwork', 'initiative', 'reliability'
+    ]
+
+
+    return render_template(
+        'teacher/student_profile.html',
+        student=student,
+        results=results,
+        profile=profile,
+        psychomotor_fields=psychomotor_fields,
+        class_name=enrollment['class'],
+        term=term,
+        session=session_val
+    )
+
+# Save Comment & Ratings
+@teacher_bp.route('/save_profile', methods=['POST'])
+@teacher_required
+def save_profile():
+    adm_no = request.form['adm_no']
+    comment = request.form['comment'].strip()
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    ratings = {}
+    for field in ['punctuality', 'neatness', 'honesty', 'leadership', 'politeness', 'teamwork', 'initiative', 'reliability']:
+        val = request.form.get(field)
+        if val:
+            ratings[field] = int(val)
+
+    mongo.student_term_profiles.update_one(
+        {
+            'admission_number': adm_no,
+            'session': session_val,
+            'term': term
+        },
+        {'$set': {
+            'class_teacher_comment': comment,
+            'psychomotor': ratings,
+            'date_updated': datetime.utcnow()
+        }},
+        upsert=True
+    )
+
+    flash('Student profile updated successfully!', 'success')
+    return redirect(url_for('teacher.student_profile', adm_no=adm_no))
+    
 # Helper: Update Average & Positions for All Enrolled in Subject
 def update_class_average_and_positions(subject, class_name, session_val, term):
     enrollment = mongo.subject_enrollments.find_one({
@@ -445,3 +584,69 @@ def update_class_average_and_positions(subject, class_name, session_val, term):
                     'position': pos
                 }}
             )
+
+
+@teacher_bp.route('/save_subject_scores', methods=['POST'])
+@teacher_required
+def save_subject_scores():
+    subject = request.form['subject']
+    class_name = request.form['class']
+    term = request.form['term']
+    session_val = sesh['teacher_session']
+
+    # Get selected (enrolled) students
+    enrolled_adms = request.form.getlist('enrolled_students')
+
+    # Update subject enrollment (overwrite — prevents duplicates)
+    mongo.subject_enrollments.update_one(
+        {
+            'subject': subject,
+            'class': class_name,
+            'session': session_val,
+            'term': term
+        },
+        {'$set': {
+            'enrolled_admission_numbers': enrolled_adms,
+            'date_updated': datetime.utcnow()
+        }},
+        upsert=True
+    )
+
+    saved_count = 0
+    for adm_no in enrolled_adms:
+        ca1 = float(request.form.get(f'ca1_{adm_no}', 0))
+        ca2 = float(request.form.get(f'ca2_{adm_no}', 0))
+        exam = float(request.form.get(f'exam_{adm_no}', 0))
+
+        total = ca1 + ca2 + exam
+        if term == 'Third':
+            cum1 = float(request.form.get(f'cum1_{adm_no}', 0))
+            cum2 = float(request.form.get(f'cum2_{adm_no}', 0))
+            total = round((cum1 + cum2 + total) / 3, 2)
+
+        # Upsert — updates if exists, creates if not (prevents duplicates)
+        result = mongo.results.update_one(
+            {
+                'admission_number': adm_no,
+                'subject': subject,
+                'session': session_val,
+                'term': term
+            },
+            {'$set': {
+                'ca1': ca1,
+                'ca2': ca2,
+                'exam': exam,
+                'total': total,
+                'date_updated': datetime.utcnow()
+            }},
+            upsert=True
+        )
+
+        if result.modified_count or result.upserted_id:
+            saved_count += 1
+
+    # Recalculate class stats
+    update_class_average_and_positions(subject, class_name, session_val, term)
+
+    flash(f'Successfully saved/updated scores for {saved_count} students!', 'success')
+    return redirect(url_for('teacher.subject_detail', subject=subject, class_name=class_name))

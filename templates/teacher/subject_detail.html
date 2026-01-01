@@ -1,133 +1,236 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-7xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl p-10 mb-12">
-        <h2 class="text-3xl font-bold text-gray-800 mb-8">Subject: {{ subject }} in {{ class_name }}</h2>
-        <p class="text-xl text-gray-600 mb-10">Term: {{ term }} • Session: {{ teacher.session }}</p>
+<div class="max-w-5xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10 text-center">
+            <h1 class="text-4xl font-bold mb-4">Upload Scores</h1>
+            <p class="text-xl opacity-90">{{ subject }} - {{ class_name }} ({{ session }} • {{ term }} Term)</p>
+        </div>
 
-        <!-- Student List with Enroll/Unenroll -->
-        <div class="overflow-x-auto">
-            <table class="w-full text-left border-collapse">
-                <thead>
-                    <tr class="bg-indigo-100">
-                        <th class="p-4">Name</th>
-                        <th class="p-4">Admission No</th>
-                        <th class="p-4">Enrolled</th>
-                        <th class="p-4">CA1</th>
-                        <th class="p-4">CA2</th>
-                        <th class="p-4">Exam</th>
-                        {% if term == 'Third' %}
-                            <th class="p-4">Cum1</th>
-                            <th class="p-4">Cum2</th>
-                        {% endif %}
-                        <th class="p-4">Total</th>
-                        <th class="p-4">Position</th>
-                        <th class="p-4">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for student in students %}
-                        {% set adm_no = student.admission_number %}
-                        {% set score = scores.get(adm_no, {}) %}
-                        <tr class="border-b hover:bg-indigo-50">
-                            <td class="p-4">{{ student.name }}</td>
-                            <td class="p-4">{{ adm_no }}</td>
-                            <td class="p-4">
-                                {% if adm_no in enrolled %}
-                                    <span class="text-green-600 font-bold">Yes</span>
-                                {% else %}
-                                    <span class="text-red-600 font-bold">No</span>
-                                {% endif %}
-                            </td>
-                            {% if adm_no in enrolled %}
-                                <td class="p-4"><input type="number" class="score-input" data-field="ca1" value="{{ score.ca1 or 0 }}" min="0"></td>
-                                <td class="p-4"><input type="number" class="score-input" data-field="ca2" value="{{ score.ca2 or 0 }}" min="0"></td>
-                                <td class="p-4"><input type="number" class="score-input" data-field="exam" value="{{ score.exam or 0 }}" min="0"></td>
-                                {% if term == 'Third' %}
-                                    <td class="p-4">{{ score.cumulative1 or 0 }}</td>
-                                    <td class="p-4">{{ score.cumulative2 or 0 }}</td>
-                                {% endif %}
-                                <td class="p-4 font-bold">{{ score.total or 0 }}</td>
-                                <td class="p-4">{{ score.position or '—' }}</td>
-                                <td class="p-4">
-                                    <button class="enroll-btn" data-action="unenroll" data-adm-no="{{ adm_no }}" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
-                                        Unenroll
-                                    </button>
-                                    <button class="save-scores-btn" data-adm-no="{{ adm_no }}" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 ml-2">
-                                        Save Scores
-                                    </button>
-                                </td>
-                            {% else %}
-                                <td colspan="{% if term == 'Third' %}8{% else %}6{% endif %}" class="p-4 text-center text-gray-500">Enroll to enter scores</td>
-                                <td class="p-4">
-                                    <button class="enroll-btn" data-action="enroll" data-adm-no="{{ adm_no }}" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-                                        Enroll
-                                    </button>
-                                </td>
-                            {% endif %}
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="p-10">
+            <form method="POST" action="{{ url_for('teacher.save_subject_scores') }}" class="space-y-10">
+                <!-- Hidden fields for context -->
+                <input type="hidden" name="subject" value="{{ subject }}">
+                <input type="hidden" name="class" value="{{ class_name }}">
+                <input type="hidden" name="term" value="{{ term }}">
+
+                <!-- Student Selection for Subject Enrollment -->
+                <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8">
+                    <h3 class="text-2xl font-bold text-indigo-800 mb-6">
+                        Select Students Offering {{ subject }}
+                    </h3>
+                    <div class="enrollment-list grid grid-cols-1 md:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
+                        {% for student in students %}
+                            {% set checked = student.admission_number in enrolled_student_ids %}
+                            <label class="flex items-center p-4 bg-white rounded-xl shadow hover:shadow-md hover:bg-indigo-50 cursor-pointer transition">
+                                <input type="checkbox"
+                                       name="enrolled_students"
+                                       value="{{ student.admission_number }}"
+                                       {% if checked %}checked{% endif %}
+                                       class="h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500">
+                                <span class="ml-4 text-lg">
+                                    <strong>{{ student.name }}</strong> 
+                                    <span class="text-gray-600">({{ student.admission_number }})</span>
+                                </span>
+                            </label>
+                        {% endfor %}
+                    </div>
+                    {% if not students %}
+                        <p class="text-center text-gray-600 py-8">No students enrolled in this class for {{ term }} Term.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Dynamic Scores Table -->
+                <div id="scores-table" class="bg-white rounded-2xl shadow-xl p-8 {% if not enrolled_student_ids %}hidden{% endif %}">
+                    <h3 class="text-2xl font-bold text-indigo-800 mb-6">Enter Scores</h3>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-indigo-100">
+                                <tr>
+                                    <th class="px-6 py-4 text-left text-sm font-semibold text-gray-800">Student</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">CA1<br><small>(/15)</small></th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">CA2<br><small>(/15)</small></th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">Exam<br><small>(/70)</small></th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800 cum-header {% if term != 'Third' %}hidden{% endif %}">Cum 1st</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800 cum-header {% if term != 'Third' %}hidden{% endif %}">Cum 2nd</th>
+                                    <th class="px-6 py-4 text-center text-sm font-semibold text-indigo-700">Total</th>
+                                </tr>
+                            </thead>
+                            
+                               <!-- Inside the form, replace the scores table tbody with this -->
+                                <tbody class="bg-white divide-y divide-gray-200" id="scores-tbody">
+                                    {% for student in students %}
+                                        {% set adm_no = student.admission_number %}
+                                        {% set is_enrolled = adm_no in enrolled_student_ids %}
+                                        {% set score = existing_scores.get(adm_no, {}) %}
+                                
+                                        {% if is_enrolled %}
+                                            <tr class="hover:bg-indigo-50 transition">
+                                                <td class="px-6 py-4 font-medium">
+                                                    {{ student.name }} <span class="text-gray-600">({{ adm_no }})</span>
+                                                </td>
+                                                <td class="px-6 py-4 text-center">
+                                                    <input type="number" name="ca1_{{ adm_no }}" min="0" max="15" value="{{ score.ca1 or 0 }}" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)" required>
+                                                </td>
+                                                <td class="px-6 py-4 text-center">
+                                                    <input type="number" name="ca2_{{ adm_no }}" min="0" max="15" value="{{ score.ca2 or 0 }}" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)" required>
+                                                </td>
+                                                <td class="px-6 py-4 text-center">
+                                                    <input type="number" name="exam_{{ adm_no }}" min="0" max="70" value="{{ score.exam or 0 }}" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)" required>
+                                                </td>
+                                                {% if term == 'Third' %}
+                                                    <td class="px-6 py-4 text-center">
+                                                        <input type="number" name="cum1_{{ adm_no }}" min="0" max="100" value="{{ score.cumulative1 or 0 }}" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)">
+                                                    </td>
+                                                    <td class="px-6 py-4 text-center">
+                                                        <input type="number" name="cum2_{{ adm_no }}" min="0" max="100" value="{{ score.cumulative2 or 0 }}" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)">
+                                                    </td>
+                                                {% endif %}
+                                                <td class="px-6 py-4 text-center font-bold text-indigo-700">
+                                                    <span class="total-score">{{ (score.total or 0)|round(2) }}</span>
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endfor %}
+                                </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="text-center">
+                    <button type="submit"
+                            class="px-12 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl shadow-lg transition transform hover:scale-105">
+                        Save Enrollment & Scores
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
+
+    <!-- Class Summary (After Save) -->
+    {% if summary_results %}
+        <div class="mt-12 bg-gradient-to-r from-green-50 to-teal-50 rounded-2xl shadow-xl p-8">
+            <h3 class="text-2xl font-bold text-green-800 mb-6 text-center">
+                Class Summary - {{ subject }} ({{ term }} Term)
+            </h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-green-200">
+                    <thead class="bg-green-100">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-green-800">Student</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-green-800">Total</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-green-800">Position</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-green-200">
+                        {% for res in summary_results %}
+                            <tr class="hover:bg-green-50 transition">
+                                <td class="px-6 py-4 font-medium">{{ res.student_name }}</td>
+                                <td class="px-6 py-4 text-center font-bold text-indigo-700">{{ res.total }}</td>
+                                <td class="px-6 py-4 text-center text-2xl font-bold text-purple-700">
+                                    {{ res.position }}
+                                    {% if res.position == 1 %}st
+                                    {% elif res.position == 2 %}nd
+                                    {% elif res.position == 3 %}rd
+                                    {% else %}th{% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        <tr class="bg-green-200 font-bold">
+                            <td class="px-6 py-4 text-right text-green-800">Class Average:</td>
+                            <td colspan="2" class="px-6 py-4 text-center text-2xl text-green-800">
+                                {{ class_average|round(2) }}
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
 </div>
 
 <script>
-document.querySelectorAll('.enroll-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const action = btn.dataset.action;
-        const adm_no = btn.dataset.admNo;
+    const enrollmentList = document.querySelector('.enrollment-list');
+    const scoresTable = document.getElementById('scores-table');
+    const tbody = document.getElementById('scores-tbody');
+    const cumHeaders = document.querySelectorAll('.cum-header');
 
-        const response = await fetch('/teacher/enroll_student', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                subject: '{{ subject }}',
-                class: '{{ class_name }}',
-                adm_no: adm_no,
-                action: action
-            })
+    function updateScoresTable() {
+        tbody.innerHTML = '';
+        const checkedBoxes = document.querySelectorAll('input[name="enrolled_students"]:checked');
+
+        if (checkedBoxes.length === 0) {
+            scoresTable.classList.add('hidden');
+            return;
+        }
+
+        scoresTable.classList.remove('hidden');
+
+        checkedBoxes.forEach(cb => {
+            const admNo = cb.value;
+            const label = cb.parentElement;
+            const studentName = label.querySelector('span').textContent.trim();
+
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-indigo-50 transition';
+
+            let cumCols = '';
+            if ('{{ term }}' === 'Third') {
+                cumCols = `
+                    <td class="px-6 py-4 text-center">
+                        <input type="number" name="cum1_${admNo}" min="0" max="100" value="0" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)">
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <input type="number" name="cum2_${admNo}" min="0" max="100" value="0" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)">
+                    </td>
+                `;
+            }
+
+            row.innerHTML = `
+                <td class="px-6 py-4 font-medium">${studentName}</td>
+                <td class="px-6 py-4 text-center">
+                    <input type="number" name="ca1_${admNo}" min="0" max="15" value="0" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)" required>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input type="number" name="ca2_${admNo}" min="0" max="15" value="0" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)" required>
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input type="number" name="exam_${admNo}" min="0" max="70" value="0" class="w-20 border rounded px-2 py-1" oninput="calcTotal(this)" required>
+                </td>
+                ${cumCols}
+                <td class="px-6 py-4 text-center font-bold text-indigo-700">
+                    <span class="total-score">0.00</span>
+                </td>
+            `;
+            tbody.appendChild(row);
         });
+    }
 
-        const data = await response.json();
-        if (data.success) {
-            location.reload();  // Refresh to update list
-        } else {
-            alert(data.error || 'Error occurred');
+    function calcTotal(input) {
+        const row = input.closest('tr');
+        const ca1 = parseFloat(row.querySelector('[name^="ca1_"]').value) || 0;
+        const ca2 = parseFloat(row.querySelector('[name^="ca2_"]').value) || 0;
+        const exam = parseFloat(row.querySelector('[name^="exam_"]').value) || 0;
+        let total = ca1 + ca2 + exam;
+
+        if ('{{ term }}' === 'Third') {
+            const cum1 = parseFloat(row.querySelector('[name^="cum1_"]').value) || 0;
+            const cum2 = parseFloat(row.querySelector('[name^="cum2_"]').value) || 0;
+            total = Math.round((cum1 + cum2 + total) / 3 * 100) / 100;
+        }
+
+        row.querySelector('.total-score').textContent = total.toFixed(2);
+    }
+
+    // Rebuild table when any checkbox changes
+    enrollmentList.addEventListener('change', (e) => {
+        if (e.target.name === 'enrolled_students') {
+            updateScoresTable();
         }
     });
-});
 
-document.querySelectorAll('.save-scores-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-        const adm_no = btn.dataset.admNo;
-        const row = btn.closest('tr');
-        const ca1 = row.querySelector('input[data-field="ca1"]').value;
-        const ca2 = row.querySelector('input[data-field="ca2"]').value;
-        const exam = row.querySelector('input[data-field="exam"]').value;
-
-        const response = await fetch('/teacher/save_scores', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: new URLSearchParams({
-                adm_no: adm_no,
-                subject: '{{ subject }}',
-                ca1: ca1,
-                ca2: ca2,
-                exam: exam
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            const totalCell = row.querySelector('td:nth-child({% if term == 'Third' %}9{% else %}7{% endif %})');
-            totalCell.textContent = data.total.toFixed(2);
-            alert('Scores saved and calculations updated!');
-        } else {
-            alert(data.error || 'Error saving scores');
-        }
-    });
-});
+    // Initial build on page load
+    updateScoresTable();
 </script>
 {% endblock %}
