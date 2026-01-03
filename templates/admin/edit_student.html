@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-6xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-2xl shadow-2xl p-10">
+        <h2 class="text-3xl font-bold text-gray-800 mb-8">{{ student.name }} - {{ enrollment.class }}</h2>
+        <p class="text-xl text-gray-600 mb-10">{{ current_term }} Term</p>
+
+        <form method="POST" action="{{ url_for('admin.save_student_results') }}">
+            <input type="hidden" name="adm_no" value="{{ student.admission_number }}">
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-indigo-100">
+                        <tr>
+                            <th class="px-6 py-4 text-left">Subject</th>
+                            <th class="px-6 py-4 text-center">CA1</th>
+                            <th class="px-6 py-4 text-center">CA2</th>
+                            <th class="px-6 py-4 text-center">Exam</th>
+                            <th class="px-6 py-4 text-center">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for res in results %}
+                            <tr class="hover:bg-indigo-50">
+                                <td class="px-6 py-4 font-medium">{{ res.subject }}</td>
+                                <td class="px-6 py-4 text-center">
+                                    <input type="number" name="ca1_{{ res.subject }}" value="{{ res.ca1 or 0 }}" min="0" max="15" class="w-20 border rounded px-2 py-1">
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <input type="number" name="ca2_{{ res.subject }}" value="{{ res.ca2 or 0 }}" min="0" max="15" class="w-20 border rounded px-2 py-1">
+                                </td>
+                                <td class="px-6 py-4 text-center">
+                                    <input type="number" name="exam_{{ res.subject }}" value="{{ res.exam or 0 }}" min="0" max="70" class="w-20 border rounded px-2 py-1">
+                                </td>
+                                <td class="px-6 py-4 text-center font-bold text-indigo-700">
+                                    {{ (res.total or 0)|round(2) }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="text-center mt-10">
+                <button type="submit" class="px-12 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
+                    Save All Results
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -20,7 +20,7 @@ gpt-school-results/
 
 
 2. Students can print thier PDF
-3. The former results are filled in-place when a teacher pulls up the result sheet
+
 4. The class-teacher' page contains a more realistic way of assessing their students
 
 
@@ -76,3 +76,10 @@ Students
    - Create a migration script to move existing data into session-specific structures (e.g., assume current data belongs to "2024/2025").  
    - Test thoroughly: upload new term → promote → start new session → verify old results still accessible.
 
+
+
+NEXT THINGS
+
+2. The admin should have a list of the students in each class (registered in that term) and from the list be able to toggle the result_visibiliy; from there he must also be able to check and edit the result of any student. 
+3. Verify the content of the results the class teacher needs to add
+4. The content and format of the PDF result the student will be printing needs to be fixed.

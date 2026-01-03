@@ -1,5 +1,5 @@
 # routes/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
 from extensions import mongo
 from utils.auth import admin_required
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
@@ -220,18 +220,34 @@ def student_detail(student_id):
     return render_template('admin/student_detail.html', student=student, grouped_results=grouped_results, classes=classes)
 
 
-@admin_bp.route('/toggle-result-visibility/<student_id>', methods=['POST'])
+@admin_bp.route('/toggle_visibility', methods=['POST'])
 @admin_required
-def toggle_result_visibility(student_id):
-    student = mongo.students.find_one({'_id': ObjectId(student_id)})
-    if not student:
-        flash('Student not found', 'error')
-        return redirect(url_for('admin.manage_students'))
-    new_status = not student.get('results_visible', True)
-    mongo.students.update_one({'_id': ObjectId(student_id)}, {'$set': {'results_visible': new_status}})
-    action = "blocked from" if not new_status else "allowed to"
-    flash(f'{student["name"]} has been {action} viewing results', 'success')
-    return redirect(request.referrer or url_for('admin.manage_students'))
+def toggle_visibility():
+    adm_no = request.form['adm_no']
+    current_visible = request.form.get('current_visible') == 'true'
+
+    # Update in term_enrollments (your current term enrollment collection)
+    result = mongo.term_enrollments.update_one(
+        {'admission_number': adm_no},
+        {'$set': {'results_visible': not current_visible}}
+    )
+
+    if result.modified_count:
+        new_state = not current_visible
+    else:
+        # If not found, set to True by default
+        mongo.term_enrollments.update_one(
+            {'admission_number': adm_no},
+            {'$set': {'results_visible': True}},
+            upsert=True
+        )
+        new_state = True
+
+    return jsonify({
+        'success': True,
+        'new_visible': new_state,
+        'label': 'Visible' if new_state else 'Hidden'
+    })
 
 
 @admin_bp.route('/promote', methods=['GET', 'POST'])
@@ -307,7 +323,7 @@ def promote_students():
             mongo.enrollments.insert_one({
                 "student_id": enrollment["student_id"],
                 "session": next_session,
-                "term": "First",
+                "term": get_current_context()['term'],
                 "class_": new_class,
                 "subjects": enrollment.get("subjects", []),
                 "status": "active",
@@ -535,7 +551,7 @@ def assign_teachers():
     # Get current or selected term context
     current_session = get_current_context()['session_name']  # Make dynamic later
     terms = ['First', 'Second', 'Third']
-    selected_term = request.form.get('term') or request.args.get('term') or terms[0]
+    selected_term = request.form.get('term') or request.args.get('term') or get_current_context()['term']
 
     # Fetch all active teachers for this term
     teachers = list(mongo.teachers.find({
@@ -641,7 +657,7 @@ def term_enrollment():
     terms = ['First', 'Second', 'Third']
     classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
 
-    selected_term = request.form.get('term') or request.args.get('term') or 'First'
+    selected_term = request.form.get('term') or request.args.get('term') or get_current_context()['term']
 
     if request.method == 'POST':
         selected_students = request.form.getlist('student_select')  # admission numbers
@@ -691,4 +707,101 @@ def term_enrollment():
         current_session=current_session,
         selected_term=selected_term,
         terms=terms
+    )
+
+@admin_bp.route('/class_students/<class_name>')
+@admin_required
+def class_students(class_name):
+    current_session = get_current_context()['session_name']  # Make dynamic
+    current_term = get_current_context()['term']  # Make dynamic or from form
+
+    # All students in this class for current term
+    students = list(mongo.term_enrollments.find({
+        'class': class_name,
+        'session': current_session,
+        'term': current_term
+    }).sort('name', 1))
+
+    if not students:
+        flash('No students enrolled in this class for current term', 'info')
+
+    return render_template(
+        'admin/class_students.html',
+        class_name=class_name,
+        students=students,
+        current_session=current_session,
+        current_term=current_term
+    )
+
+@admin_bp.route('/save_student_results', methods=['POST'])
+@admin_required
+def save_student_results():
+    adm_no = request.form['adm_no']
+    current_session = get_current_context()['session_name']
+    current_term = get_current_context()['term']
+
+    for key in request.form:
+        if key.startswith('ca1_'):
+            subject = key.split('_')[1]
+            ca1 = float(request.form.get(f'ca1_{subject}', 0))
+            ca2 = float(request.form.get(f'ca2_{subject}', 0))
+            exam = float(request.form.get(f'exam_{subject}', 0))
+            total = ca1 + ca2 + exam
+            if current_term == 'Third':
+                cum1 = float(request.form.get(f'cum1_{subject}', 0))
+                cum2 = float(request.form.get(f'cum2_{subject}', 0))
+                total = round((cum1 + cum2 + total) / 3, 2)
+
+            mongo.results.update_one(
+                {'admission_number': adm_no, 'subject': subject, 'session': current_session, 'term': current_term},
+                {'$set': {'ca1': ca1, 'ca2': ca2, 'exam': exam, 'total': total}},
+                upsert=True
+            )
+
+    flash('Student results updated successfully!', 'success')
+    return redirect(url_for('admin.edit_student', adm_no=adm_no))
+
+@admin_bp.route('/edit_student/<adm_no>')
+@admin_required
+def edit_student(adm_no):
+    current_session = get_current_context()['session_name']
+    current_term = get_current_context()['term']
+
+    student = mongo.students.find_one({'admission_number': adm_no})
+    enrollment = mongo.term_enrollments.find_one({'admission_number': adm_no})
+
+    # All results for this student
+    results = list(mongo.results.find({
+        'admission_number': adm_no,
+        'session': current_session,
+        'term': current_term
+    }).sort('subject', 1))
+
+    return render_template(
+        'admin/edit_student.html',
+        student=student,
+        enrollment=enrollment,
+        results=results,
+        current_term=current_term
+    )
+
+@admin_bp.route('/classes')
+@admin_required
+def classes_overview():
+    current_session = get_current_context()['session_name'] # Make dynamic if needed
+    current_term = get_current_context()['term']  # Make dynamic
+
+    # Get all distinct classes that have students enrolled this term
+    classes = mongo.term_enrollments.distinct('class', {
+        'session': current_session,
+        'term': current_term
+    })
+
+    classes.sort()  # Nice alphabetical order
+
+    return render_template(
+        'admin/classes_overview.html',
+        classes=classes,
+        current_session=current_session,
+        current_term=current_term
     )

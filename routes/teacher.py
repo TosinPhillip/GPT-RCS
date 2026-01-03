@@ -11,6 +11,16 @@ from bson import ObjectId
 import bcrypt
 import json
 teacher_bp = Blueprint('teacher', __name__, url_prefix='/teacher')
+
+# Hardcoded grading system — easy to change
+GRADE_SCALE = [
+    (70, 100, 'A', 'Distinction'),
+    (60, 69, 'B', 'Above Average'),
+    (50, 59, 'C', 'Credit'),
+    (40, 49, 'D', 'Below Average'),
+    (0, 39, 'F', 'Failed')
+]
+
 # ==================== TEACHER LOGIN ====================
 @teacher_bp.route('/login', methods=['GET', 'POST'])
 def login():
@@ -205,8 +215,7 @@ def subject_detail(subject, class_name):
     session_val = sesh['teacher_session']
     term = sesh['teacher_term']
 
-    teacher = mongo.teachers.find_one({'email': teacher_email})
-    # Verify teacher is assigned to this subject/class
+    # Verify assignment
     assignment = mongo.subject_assignments.find_one({
         'teacher_email': teacher_email,
         'subject': subject,
@@ -218,71 +227,51 @@ def subject_detail(subject, class_name):
         flash('You are not assigned to this subject or class', 'error')
         return redirect(url_for('teacher.dashboard'))
 
-    # Fetch all students in this class (from admin enrollment — assume students have 'class', 'session')
-    # Replace the students query with:
+    # All students in class for this term
     students = list(mongo.term_enrollments.find({
         'class': class_name,
         'session': session_val,
         'term': term
     }).sort('name', 1))
 
-    # Fetch or create enrollment doc
+    # Fetch current subject enrollment
     enrollment_doc = mongo.subject_enrollments.find_one({
         'subject': subject,
         'class': class_name,
         'session': session_val,
         'term': term
     })
-    if not enrollment_doc:
-        enrollment_doc = {
-            'subject': subject,
-            'class': class_name,
-            'session': session_val,
-            'term': term,
-            'enrolled_students': [],
-            'date_updated': datetime.utcnow()
-        }
-        mongo.subject_enrollments.insert_one(enrollment_doc)
-
-    enrolled = set(enrollment_doc['enrolled_students'])
-
-    # Fetch existing scores for enrolled students (for display/edit)
-    scores = {}
-    for student in students:
-        adm_no = student['admission_number']
-        if adm_no in enrolled:
-            result = mongo.results.find_one({
-                'admission_number': adm_no,
-                'subject': subject,
-                'session': session_val,
-                'term': term
-            })
-            if not result:
-                result = create_default_result(adm_no, subject, class_name, session_val, term)  # Function below
-            scores[adm_no] = result
-    # Fetch existing scores for pre-fill
-    existing_scores = {}
-    results = list(mongo.results.find({
+    enrolled_student_ids = enrollment_doc['enrolled_students'] if enrollment_doc else []
+    # All results for this subject/class/term
+    results_cursor = mongo.results.find({
         'subject': subject,
         'class': class_name,
         'session': session_val,
         'term': term
-    }))
-    for r in results:
-        existing_scores[r['admission_number']] = r
-    
+    })
+
+    # Fetch existing scores for pre-fill
+    existing_scores = {}
+    class_average = 0.0
+    for r in results_cursor:
+        adm_no = r['admission_number']
+        existing_scores[adm_no] = r
+        if 'class_average' in r:
+            class_average = r['class_average']
+    ca1 = min(max(float(request.form.get(f'ca1_{adm_no}', 0)), 0), 15)
+    ca2 = min(max(float(request.form.get(f'ca2_{adm_no}', 0)), 0), 15)
+    exam = min(max(float(request.form.get(f'exam_{adm_no}', 0)), 0), 70)
+
     return render_template(
         'teacher/subject_detail.html',
         subject=subject,
         class_name=class_name,
         students=students,
-        enrolled=enrolled,
-        scores=scores,
-        term=term,
-        teacher=teacher,
-        session=session_val,
+        enrolled_student_ids=enrolled_student_ids,
         existing_scores=existing_scores,
-        enrolled_student_ids=enrolled
+        class_average=class_average,
+        term=term,
+        session=session_val
     )
 
 # Helper Function: Create Default Result Doc (with auto-pull for Third Term)
@@ -594,29 +583,21 @@ def save_subject_scores():
     term = request.form['term']
     session_val = sesh['teacher_session']
 
-    # Get selected (enrolled) students
     enrolled_adms = request.form.getlist('enrolled_students')
 
-    # Update subject enrollment (overwrite — prevents duplicates)
+    # Update enrollment
     mongo.subject_enrollments.update_one(
-        {
-            'subject': subject,
-            'class': class_name,
-            'session': session_val,
-            'term': term
-        },
-        {'$set': {
-            'enrolled_admission_numbers': enrolled_adms,
-            'date_updated': datetime.utcnow()
-        }},
+        {'subject': subject, 'class': class_name, 'session': session_val, 'term': term},
+        {'$set': {'enrolled_admission_numbers': enrolled_adms}},
         upsert=True
     )
 
-    saved_count = 0
+    results_to_save = []
+
     for adm_no in enrolled_adms:
-        ca1 = float(request.form.get(f'ca1_{adm_no}', 0))
-        ca2 = float(request.form.get(f'ca2_{adm_no}', 0))
-        exam = float(request.form.get(f'exam_{adm_no}', 0))
+        ca1 = min(float(request.form.get(f'ca1_{adm_no}', 0)), 15)
+        ca2 = min(float(request.form.get(f'ca2_{adm_no}', 0)), 15)
+        exam = min(float(request.form.get(f'exam_{adm_no}', 0)), 70)
 
         total = ca1 + ca2 + exam
         if term == 'Third':
@@ -624,29 +605,55 @@ def save_subject_scores():
             cum2 = float(request.form.get(f'cum2_{adm_no}', 0))
             total = round((cum1 + cum2 + total) / 3, 2)
 
-        # Upsert — updates if exists, creates if not (prevents duplicates)
-        result = mongo.results.update_one(
-            {
-                'admission_number': adm_no,
-                'subject': subject,
-                'session': session_val,
-                'term': term
-            },
+        grade, remark = get_grade_and_remark(total)
+
+        results_to_save.append({
+            'admission_number': adm_no,
+            'total': total,
+            'grade': grade,
+            'remark': remark
+        })
+
+        # Upsert individual result
+        mongo.results.update_one(
+            {'admission_number': adm_no, 'subject': subject, 'session': session_val, 'term': term},
             {'$set': {
-                'ca1': ca1,
-                'ca2': ca2,
-                'exam': exam,
-                'total': total,
+                'ca1': ca1, 'ca2': ca2, 'exam': exam,
+                'total': total, 'grade': grade, 'remark': remark,
                 'date_updated': datetime.utcnow()
             }},
             upsert=True
         )
 
-        if result.modified_count or result.upserted_id:
-            saved_count += 1
+    # Calculate positions (handle ties)
+    sorted_results = sorted(results_to_save, key=lambda x: x['total'], reverse=True)
+    current_pos = 1
+    prev_total = None
+    for i, res in enumerate(sorted_results):
+        if i > 0 and res['total'] < prev_total:
+            current_pos = i + 1
+        mongo.results.update_one(
+            {'admission_number': res['admission_number'], 'subject': subject, 'session': session_val, 'term': term},
+            {'$set': {'position': current_pos}}
+        )
+        prev_total = res['total']
 
-    # Recalculate class stats
-    update_class_average_and_positions(subject, class_name, session_val, term)
+    # Class average
+    totals = [r['total'] for r in results_to_save]
+    class_avg = round(sum(totals) / len(totals), 2) if totals else 0
 
-    flash(f'Successfully saved/updated scores for {saved_count} students!', 'success')
+    # Save average to all records
+    mongo.results.update_many(
+        {'subject': subject, 'class': class_name, 'session': session_val, 'term': term},
+        {'$set': {'class_average': class_avg}}
+    )
+
+    flash('Scores saved successfully with grades, positions, and class average!', 'success')
     return redirect(url_for('teacher.subject_detail', subject=subject, class_name=class_name))
+
+
+def get_grade_and_remark(total):
+    for min_score, max_score, grade, remark in GRADE_SCALE:
+        if min_score <= total <= max_score:
+            return grade, remark
+    return 'F', 'Failed'  # fallback
