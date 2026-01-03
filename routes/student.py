@@ -3,6 +3,7 @@
 from flask import Blueprint, render_template, request, session as sesh, jsonify, redirect, url_for, flash
 from extensions import mongo
 from utils.auth import student_required  # ← Now importing the centralised decorator
+from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
 import bcrypt
 
 student_bp = Blueprint('student', __name__, url_prefix='/student')
@@ -12,26 +13,31 @@ student_bp = Blueprint('student', __name__, url_prefix='/student')
 def search():
     if request.method == 'POST':
         adm_no = request.form['admission_number'].strip()
-        password = request.form['password'].encode('utf-8')  # Plain text → bytes
+        password = request.form['password'].encode('utf-8')
 
         student = mongo.students.find_one({'admission_number': adm_no})
 
-        if student:
-            stored_hash = student['password']  
+        if student and bcrypt.checkpw(password, student['password'].encode('utf-8')):
+            # Fetch current term enrollment to check visibility
+            current_session = get_current_context()['session_name'] # Make dynamic or from config
+            current_term = get_current_context()['term']
 
-            # Convert stored hash string to bytes only once
-            if bcrypt.checkpw(password, stored_hash.encode('utf-8')):
-                # Check if results are blocked
-                if not student.get('results_visible', True):
-                    flash('Your results are currently unavailable. Contact administration.', 'error')
-                    return render_template('student/search.html') 
-                # Successful login
-                sesh['adm_no'] = student['admission_number']
-                sesh['student_name'] = student['name']
-                sesh['role'] = 'student'
-                return redirect(url_for('student.dashboard'))
+            enrollment = mongo.term_enrollments.find_one({
+                'admission_number': adm_no,
+                'session': current_session,
+                'term': current_term
+            })
 
-        # If we get here: either no student or wrong password
+            if not enrollment or not enrollment.get('results_visible', True):
+                flash('Your results are currently hidden by administration. Contact the school for access.', 'error')
+                return render_template('student/search.html')
+
+            # Login success
+            sesh['adm_no'] = student['admission_number']
+            sesh['student_name'] = student['name']
+            sesh['role'] = 'student'
+            return redirect(url_for('student.dashboard'))
+
         flash('Invalid admission number or password', 'error')
 
     return render_template('student/search.html')
@@ -46,8 +52,22 @@ def logout():
 @student_bp.route('/dashboard')
 @student_required
 def dashboard():
-    available_terms = ['First', 'Second', 'Third']  # Or fetch dynamically
     adm_no = sesh['adm_no']
+    current_session = get_current_context()['session_name']
+    current_term = get_current_context()["term"]
+    available_terms = ['First', 'Second', 'Third']
+    # Double-check visibility on every dashboard load
+    enrollment = mongo.term_enrollments.find_one({
+        'admission_number': adm_no,
+        'session': current_session,
+        'term': current_term
+    })
+
+    if not enrollment or not enrollment.get('results_visible', True):
+        flash('Your results are currently hidden by administration.', 'error')
+        sesh.clear()
+        return redirect(url_for('student.search'))
+
     student = mongo.students.find_one({'admission_number': adm_no})
     # Get all sessions this student has results in
     student_sessions = sorted(
@@ -84,8 +104,20 @@ def dashboard():
 @student_required
 def get_results():
     adm_no = sesh['adm_no']
-    session_name = request.args.get('session')
-    term_name = request.args.get('term')
+    current_session = get_current_context()['session_name']
+    current_term = get_current_context()['term']
+
+    session_name = get_current_context()['session_name']
+    term_name = get_current_context()['term']
+    
+    enrollment = mongo.term_enrollments.find_one({
+        'admission_number': adm_no,
+        'session': current_session,
+        'term': current_term
+    })
+
+    if not enrollment or not enrollment.get('results_visible', True):
+        return jsonify({'error': 'Results are currently hidden by administration'}), 403
 
     if not session_name or not term_name:
         return jsonify({'error': 'Session and term are required'}), 400
