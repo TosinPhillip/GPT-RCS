@@ -214,6 +214,7 @@ def subject_detail(subject, class_name):
     teacher_email = sesh['teacher_email']
     session_val = sesh['teacher_session']
     term = sesh['teacher_term']
+    
 
     # Verify assignment
     assignment = mongo.subject_assignments.find_one({
@@ -241,7 +242,7 @@ def subject_detail(subject, class_name):
         'session': session_val,
         'term': term
     })
-    enrolled_student_ids = enrollment_doc['enrolled_students'] if enrollment_doc else []
+    enrolled_student_ids = enrollment_doc['enrolled_admission_numbers'] if enrollment_doc else []
     # All results for this subject/class/term
     results_cursor = mongo.results.find({
         'subject': subject,
@@ -256,11 +257,28 @@ def subject_detail(subject, class_name):
     for r in results_cursor:
         adm_no = r['admission_number']
         existing_scores[adm_no] = r
+        ca1 = min(max(float(request.form.get(f'ca1_{adm_no}', 0)), 0), 15)
+        ca2 = min(max(float(request.form.get(f'ca2_{adm_no}', 0)), 0), 15)
+        exam = min(max(float(request.form.get(f'exam_{adm_no}', 0)), 0), 70)
         if 'class_average' in r:
             class_average = r['class_average']
-    ca1 = min(max(float(request.form.get(f'ca1_{adm_no}', 0)), 0), 15)
-    ca2 = min(max(float(request.form.get(f'ca2_{adm_no}', 0)), 0), 15)
-    exam = min(max(float(request.form.get(f'exam_{adm_no}', 0)), 0), 70)
+
+    # Bringing in the pevious totals from first and second terms if the active term is third term
+    previous_totals = {}
+    if term == 'Third':
+        for prev_term in ['First', 'Second']:
+            for r in mongo.results.find({
+                'subject': subject,
+                'class': class_name,
+                'session': session_val,
+                'term': prev_term,
+                'admission_number': {'$in': enrolled_student_ids}
+            }):
+                adm_no = r['admission_number']
+                if adm_no not in previous_totals:
+                    previous_totals[adm_no] = {}
+                previous_totals[adm_no][prev_term.lower()] = r.get('total', 0)
+            
 
     return render_template(
         'teacher/subject_detail.html',
@@ -271,7 +289,8 @@ def subject_detail(subject, class_name):
         existing_scores=existing_scores,
         class_average=class_average,
         term=term,
-        session=session_val
+        session=session_val,
+        previous_totals=previous_totals if term == 'Third' else None
     )
 
 # Helper Function: Create Default Result Doc (with auto-pull for Third Term)
@@ -616,7 +635,7 @@ def save_subject_scores():
 
         # Upsert individual result
         mongo.results.update_one(
-            {'admission_number': adm_no, 'subject': subject, 'session': session_val, 'term': term},
+            {'admission_number': adm_no, 'subject': subject, 'session': session_val, 'term': term, 'class':class_name},
             {'$set': {
                 'ca1': ca1, 'ca2': ca2, 'exam': exam,
                 'total': total, 'grade': grade, 'remark': remark,

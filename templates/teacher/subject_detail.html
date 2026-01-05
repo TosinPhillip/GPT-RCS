@@ -52,12 +52,11 @@
                                 <th class="px-6 py-4 text-center">CA2</th>
                                 <th class="px-6 py-4 text-center">Exam</th>
                                 {% if term == 'Third' %}
-                                    <th class="px-6 py-4 text-center">Cum 1st</th>
-                                    <th class="px-6 py-4 text-center">Cum 2nd</th>
+                                    <th class="px-6 py-4 text-center">1st Term Total</th>
+                                    <th class="px-6 py-4 text-center">2nd Term Total</th>
                                 {% endif %}
-                                <th class="px-6 py-4 text-center">Total</th>
+                                <th class="px-6 py-4 text-center">Overall Total</th>
                                 <th class="px-6 py-4 text-center">Grade</th>
-                                <th class="px-6 py-4 text-center">Remark</th>
                                 <th class="px-6 py-4 text-center">Position</th>
                             </tr>
                         </thead>
@@ -100,82 +99,76 @@
     const saveBtn = document.getElementById('save-all');
     let editMode = false;
 
-    function renderTable() {
-        tbody.innerHTML = '';
+   function renderTable() {
+    tbody.innerHTML = '';
+    if (enrolledIds.length === 0) {
+        resultsContainer.classList.add('hidden');
+        return;
+    }
+    resultsContainer.classList.remove('hidden');
 
-        if (enrolledIds.length === 0) {
-            resultsContainer.classList.add('hidden');
-            return;
+    enrolledIds.forEach(admNo => {
+        const student = allStudents.find(s => s.admission_number === admNo);
+        const score = existingScores[admNo] || {};
+
+        const ca1 = score.ca1 || 0;
+        const ca2 = score.ca2 || 0;
+        const exam = score.exam || 0;
+        let currentTotal = ca1 + ca2 + exam;
+
+        let prevCols = '';
+        let overallTotal = currentTotal;
+        if (term === 'Third') {
+            const prev = previousTotals[admNo] || {};
+            const firstTotal = prev.first || 0;
+            const secondTotal = prev.second || 0;
+            overallTotal = Math.round((firstTotal + secondTotal + currentTotal) / 3 * 100) / 100;
+
+            prevCols = `
+                <td class="px-6 py-4 text-center view-mode font-medium">${firstTotal}</td>
+                <td class="px-6 py-4 text-center view-mode font-medium">${secondTotal}</td>
+                <td class="px-6 py-4 text-center edit-mode hidden">
+                    <input type="text" value="${firstTotal}" readonly class="w-20 bg-gray-100 border rounded px-2 py-1">
+                </td>
+                <td class="px-6 py-4 text-center edit-mode hidden">
+                    <input type="text" value="${secondTotal}" readonly class="w-20 bg-gray-100 border rounded px-2 py-1">
+                </td>
+            `;
         }
 
-        resultsContainer.classList.remove('hidden');
+        const grade = score.grade || '-';
+        const remark = score.remark || '';
+        const position = score.position || '—';
 
-        // Always render from enrolledIds (DB state)
-        enrolledIds.forEach(admNo => {
-            const student = allStudents.find(s => s.admission_number === admNo);
-            if (!student) return;
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td class="px-6 py-4 font-medium">${student.name} <span class="text-gray-600">(${admNo})</span></td>
+            <td class="px-6 py-4 text-center view-mode">${ca1}</td>
+            <td class="px-6 py-4 text-center view-mode">${ca2}</td>
+            <td class="px-6 py-4 text-center view-mode">${exam}</td>
+            ${prevCols}
+            <td class="px-6 py-4 text-center view-mode font-bold text-indigo-700">${overallTotal.toFixed(2)}</td>
+            <td class="px-6 py-4 text-center view-mode font-bold">${grade}</td>
+            <td class="px-6 py-4 text-center view-mode">${remark}</td>
+            <td class="px-6 py-4 text-center view-mode font-bold text-purple-700">${position}</td>
 
-            const score = existingScores[admNo] || {};
-
-            const ca1 = score.ca1 || 0;
-            const ca2 = score.ca2 || 0;
-            const exam = score.exam || 0;
-            let total = score.total || ca1 + ca2 + exam;
-
-            const grade = score.grade || '-';
-            const remark = score.remark || '';
-            const position = score.position || '—';
-
-            let cumCols = '';
-            if (term === 'Third') {
-                const cum1 = score.cumulative1 || 0;
-                const cum2 = score.cumulative2 || 0;
-                total = score.total || Math.round((cum1 + cum2 + ca1 + ca2 + exam) / 3 * 100) / 100;
-                cumCols = `
-                    <td class="px-6 py-4 text-center view-mode">${cum1}</td>
-                    <td class="px-6 py-4 text-center view-mode">${cum2}</td>
-                    <td class="px-6 py-4 text-center edit-mode hidden">
-                        <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="cumulative1" value="${cum1}" min="0">
-                    </td>
-                    <td class="px-6 py-4 text-center edit-mode hidden">
-                        <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="cumulative2" value="${cum2}" min="0">
-                    </td>
-                `;
-            }
-
-            const row = document.createElement('tr');
-            row.className = 'hover:bg-indigo-50 transition';
-            row.innerHTML = `
-                <td class="px-6 py-4 font-medium">${student.name} <span class="text-gray-600">(${admNo})</span></td>
-                <td class="px-6 py-4 text-center view-mode">${ca1}</td>
-                <td class="px-6 py-4 text-center view-mode">${ca2}</td>
-                <td class="px-6 py-4 text-center view-mode">${exam}</td>
-                ${cumCols}
-                <td class="px-6 py-4 text-center view-mode font-bold text-indigo-700">${total.toFixed(2)}</td>
-                <td class="px-6 py-4 text-center view-mode font-bold">${grade}</td>
-                <td class="px-6 py-4 text-center view-mode">${remark}</td>
-                <td class="px-6 py-4 text-center view-mode font-bold text-purple-700">${position}</td>
-
-                <!-- Edit Mode -->
-                <!-- CA1 -->
-                <td class="px-6 py-4 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="ca1" value="${ca1}" min="0" max="15" oninput="enforceMax(this)">
-                </td>
-                <!-- CA2 -->
-                <td class="px-6 py-4 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="ca2" value="${ca2}" min="0" max="15" oninput="enforceMax(this)">
-                </td>
-                <!-- Exam -->
-                <td class="px-6 py-4 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="exam" value="${exam}" min="0" max="70" oninput="enforceMax(this)">
-                </td>
-                ${term === 'Third' ? `<td class="px-6 py-4 text-center edit-mode hidden"><input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="cumulative1" value="${score.cumulative1 || 0}"></td><td class="px-6 py-4 text-center edit-mode hidden"><input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="cumulative2" value="${score.cumulative2 || 0}"></td>` : ''}
-                <td class="px-6 py-4 text-center edit-mode hidden font-bold text-indigo-700"><span class="total-display">${total.toFixed(2)}</span></td>
-                <td colspan="3" class="edit-mode hidden"></td>
-            `;
-            tbody.appendChild(row);
-        });
-    }
+            <!-- Edit Mode Inputs -->
+            <td class="px-6 py-4 text-center edit-mode hidden">
+                <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="ca1" value="${ca1}" min="0" max="15">
+            </td>
+            <td class="px-6 py-4 text-center edit-mode hidden">
+                <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="ca2" value="${ca2}" min="0" max="15">
+            </td>
+            <td class="px-6 py-4 text-center edit-mode hidden">
+                <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="exam" value="${exam}" min="0" max="70">
+            </td>
+            ${term === 'Third' ? '<td colspan="2" class="edit-mode hidden"></td>' : ''}
+            <td class="px-6 py-4 text-center edit-mode hidden font-bold text-indigo-700"><span class="total-display">${overallTotal.toFixed(2)}</span></td>
+            <td colspan="3" class="edit-mode hidden"></td>
+        `;
+        tbody.appendChild(row);
+    });
+}
 
     function enforceMax(input) {
     if (input.value > input.max) {
