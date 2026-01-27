@@ -460,7 +460,7 @@ def class_detail(class_name):
     )
 
 # Student Profile Page — Comment & Psychomotor Ratings
-@teacher_bp.route('/student/<adm_no>')
+@teacher_bp.route('/student/<regex:adm_no>')
 @teacher_required
 def student_profile(adm_no):
     teacher_email = sesh['teacher_email']

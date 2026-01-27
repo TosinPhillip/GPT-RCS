@@ -761,7 +761,7 @@ def save_student_results():
     flash('Student results updated successfully!', 'success')
     return redirect(url_for('admin.edit_student', adm_no=adm_no))
 
-@admin_bp.route('/edit_student/<adm_no>')
+@admin_bp.route('/edit_student/<regex:adm_no>')
 @admin_required
 def edit_student(adm_no):
     current_session = get_current_context()['session_name']
@@ -805,3 +805,40 @@ def classes_overview():
         current_session=current_session,
         current_term=current_term
     )
+
+@admin_bp.route('/subjects/create', methods=['GET', 'POST'])
+@admin_required
+def create_subject():
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        code = request.form.get('code', '').strip().upper()
+        description = request.form.get('description', '').strip()
+        is_active = request.form.get('is_active') == 'on'
+
+        if not name or not code:
+            flash('Subject name and code are required', 'danger')
+            return redirect(url_for('admin.create_subject'))
+
+        # Check for duplicate code (unique identifier)
+        if mongo.db.subjects.find_one({'code': code}):
+            flash(f'Subject code "{code}" already exists', 'danger')
+            return redirect(url_for('admin.create_subject'))
+
+        mongo.subjects.insert_one({
+            'name': name.title(),
+            'code': code,
+            'description': description,
+            'is_active': is_active,
+            'date_created': datetime.utcnow()
+        })
+
+        flash(f'Subject "{name}" ({code}) created successfully!', 'success')
+        return redirect(url_for('admin.subjects_list'))
+
+    return render_template('admin/create_subject.html')
+
+@admin_bp.route('/subjects')
+@admin_required
+def subjects_list():
+    subjects = list(mongo.subjects.find().sort('name', 1))
+    return render_template('admin/subjects_list.html', subjects=subjects)

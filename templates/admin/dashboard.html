@@ -92,6 +92,17 @@
             <p class="text-gray-600 mt-2">Toggle visibility, edit results per class</p>
         </a>
 
+
+        <a href="{{ url_for('admin.create_subject') }}"
+       class="block bg-white p-8 rounded-xl shadow hover:shadow-xl transition">
+        <div class="text-purple-600 mb-4">
+            <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+            </svg>
+        </div>
+        <h3 class="text-xl font-semibold text-gray-800">Manage Subjects</h3>
+        <p class="text-gray-600 mt-2">Create and view subjects for result entry</p>
+</a>
     </div>
 </section>
 {% endblock %}

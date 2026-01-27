@@ -19,22 +19,11 @@ gpt-school-results/
 
 
 
-2. Students can print thier PDF
-
-4. The class-teacher' page contains a more realistic way of assessing their students
 
 
 
 
-
-Here’s the clear, step-by-step overhaul plan to make your God's Peculiar Treasure School results portal truly **session-driven**, modular, and future-proof. Each step builds on the last, keeps the workflow smooth and redundancy-free, and ensures historical results remain accessible forever while current operations stay clean and focused.
-
-1. **Define the Core Data Model Changes**  
-   - Keep a single `students` collection for lifelong profiles (admission_number as unique key, name, DOB, contact, etc.).  
-   - Add a new `enrollments` collection (or embed an array in students) for session-specific data: `{ student_id, session, class_, subjects: [...], status: "active"/"alumni"/"left", promoted: true/false }`.  
-   - Tie `results`, `teacher_assignments`, `class_teachers`, and `student_subjects` explicitly to `session` and `term`.  
-   - Add a `sessions` collection: `{ name: "2025/2026", active: true, terms: [{name: "First", active: true}, ...] }`.
-
+Structure of the collections
 Enrollments
 {
   "_id": ObjectId(),
@@ -62,24 +51,34 @@ Students
 
 
 
-5. **Implement Bulk Promotion at Session End**  
-   - Admin tool: "Promote Students" → select class or individual → auto-create enrollments in next session with incremented class (e.g., JSS3 → SSS1).  
-   - Option to mark leavers as "left" (no enrollment in next session).
-
-6. **Update Result Upload & Visibility Logic**  
-   - All new results tied to active/current session & term.  
-   - Visibility block remains per-student (overrides session).  
-   - Alumni access old sessions read-only.
 
 
-8. **Testing & Migration**  
-   - Create a migration script to move existing data into session-specific structures (e.g., assume current data belongs to "2024/2025").  
-   - Test thoroughly: upload new term → promote → start new session → verify old results still accessible.
+
+
+
+
 
 
 
 NEXT THINGS
 
-2. The admin should have a list of the students in each class (registered in that term) and from the list be able to toggle the result_visibiliy; from there he must also be able to check and edit the result of any student. 
+1. Remove the useless collections and functions, and optimize the fields of those collections. Think deep before finalizing on what should be left alone or added.
+2. Take as much details of the student as possible, add a picture option to it so that it can reflect on their profiles.
 3. Verify the content of the results the class teacher needs to add
 4. The content and format of the PDF result the student will be printing needs to be fixed.
+5. Someone suggested that the class teacher should be the one enrolling students into their classes, not the admin. This calls for deeper thinking and judgment before making a decision.
+6. Go over the workflow and clear all redundancies; keep a documentation of how things flow from collection to collection because of the future.
+
+
+
+
+URGENT
+Redesign the student profile to show the details of the student. it should include the name, class, picture (which they uploaded), number in class
+
+Allow the students to be able to change their passwords when they forget it.
+
+Do not forget to also allow them to print their results in correct format.
+
+Also, allow the students to use / in their admission number and the session should also include / - DONE
+
+

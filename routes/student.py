@@ -1,5 +1,4 @@
 # routes/student.py — Updated to use student_required from utils/auth.py
-
 from flask import Blueprint, render_template, request, session as sesh, jsonify, redirect, url_for, flash
 from extensions import mongo
 from utils.auth import student_required  # ← Now importing the centralised decorator
