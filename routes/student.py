@@ -103,25 +103,25 @@ def dashboard():
 @student_required
 def get_results():
     adm_no = sesh['adm_no']
-    current_session = get_current_context()['session_name']
-    current_term = get_current_context()['term']
 
-    session_name = get_current_context()['session_name']
-    term_name = get_current_context()['term']
-    
-    enrollment = mongo.term_enrollments.find_one({
-        'admission_number': adm_no,
-        'session': current_session,
-        'term': current_term
-    })
-
-    if not enrollment or not enrollment.get('results_visible', True):
-        return jsonify({'error': 'Results are currently hidden by administration'}), 403
+    # Get selected session and term from query params (sent by JS)
+    session_name = request.args.get('session')
+    term_name = request.args.get('term')
 
     if not session_name or not term_name:
         return jsonify({'error': 'Session and term are required'}), 400
 
-    # Fetch all subject-level results for this session + term
+    # Check visibility using the selected term's enrollment
+    enrollment = mongo.term_enrollments.find_one({
+        'admission_number': adm_no,
+        'session': session_name,
+        'term': term_name
+    })
+
+    if not enrollment or not enrollment.get('results_visible', True):
+        return jsonify({'error': 'Results are currently hidden by administration for this term'}), 403
+
+    # Fetch results for the **selected** session + term
     subject_docs = list(mongo.results.find({
         'admission_number': adm_no,
         'session': session_name,
@@ -129,17 +129,20 @@ def get_results():
     }).sort('subject', 1))
 
     if not subject_docs:
-        return jsonify({'results': []})
+        return jsonify({
+            'results': [],
+            'message': f"No results available for {term_name} Term, {session_name} yet."
+        })
 
     subjects = []
     grand_total = 0.0
 
     for doc in subject_docs:
-        ca1   = float(doc.get('ca1', 0))
-        ca2   = float(doc.get('ca2', 0))
-        exam  = float(doc.get('exam', 0))
-        cum1  = float(doc.get('cumulative1', 0))
-        cum2  = float(doc.get('cumulative2', 0))
+        ca1 = float(doc.get('ca1', 0))
+        ca2 = float(doc.get('ca2', 0))
+        exam = float(doc.get('exam', 0))
+        cum1 = float(doc.get('cumulative1', 0))
+        cum2 = float(doc.get('cumulative2', 0))
 
         if term_name == 'Third':
             subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / 3, 2)
@@ -149,30 +152,30 @@ def get_results():
         grand_total += subject_total
 
         subjects.append({
-            'subject':      doc.get('subject', 'Unknown'),
-            'ca1':          ca1,
-            'ca2':          ca2,
-            'exam':         exam,
-            'cumulative1':  cum1,
-            'cumulative2':  cum2,
-            'total':        subject_total,
-            'position':     doc.get('position', '—'),
+            'subject': doc.get('subject', 'Unknown'),
+            'ca1': ca1,
+            'ca2': ca2,
+            'exam': exam,
+            'cumulative1': cum1,
+            'cumulative2': cum2,
+            'total': subject_total,
+            'position': doc.get('position', '—'),
         })
 
-    # Take metadata from the first document (assuming it's consistent across subjects)
-    first_doc = subject_docs[0]
-    average         = round(grand_total / len(subjects), 2) if subjects else 0
-    class_average   = first_doc.get('class_average')
+    # Aggregates (use first doc for metadata if consistent)
+    first_doc = subject_docs[0] if subject_docs else {}
+    average = round(grand_total / len(subjects), 2) if subjects else 0
+    class_average = first_doc.get('class_average')
     overall_position = first_doc.get('overall_position')
-    teacher_comment = first_doc.get('teacher_comment')  # or from any doc that has it
+    teacher_comment = first_doc.get('teacher_comment')
 
     result_payload = {
-        'subjects':         subjects,
-        'grand_total':      round(grand_total, 2),
-        'average':          average,
-        'class_average':    class_average,
+        'subjects': subjects,
+        'grand_total': round(grand_total, 2),
+        'average': average,
+        'class_average': class_average,
         'overall_position': overall_position,
-        'teacher_comment':  teacher_comment,
+        'teacher_comment': teacher_comment,
     }
 
     return jsonify({'results': [result_payload]})

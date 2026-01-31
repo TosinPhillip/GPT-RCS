@@ -1,5 +1,5 @@
 # routes/admin.py
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session, jsonify
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session as sesh, jsonify
 from extensions import mongo
 from utils.auth import admin_required
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
@@ -27,7 +27,7 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Global class list (can be moved to collection later)
-classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
+classes = [doc['name'] for doc in mongo.classes.find().sort('name', 1)]
 
 
 @admin_bp.route('/login', methods=['GET', 'POST'])
@@ -36,15 +36,16 @@ def login():
         username = request.form['username']
         password = request.form['password'].encode('utf-8')
         if username == ADMIN_USERNAME and bcrypt.checkpw(password, ADMIN_PASSWORD_HASH.encode('utf-8')):
-            session['admin_logged_in'] = True
+            sesh['admin_logged_in'] = True
+            sesh['role'] = 'admin'
             return redirect(url_for('admin.dashboard'))
         flash('Invalid credentials', 'error')
-    return render_template('admin/login.html')
+    return render_template('admin/login.html', sesh=sesh)
 
 
 @admin_bp.route('/logout')
 def logout():
-    session.pop('admin_logged_in', None)
+    sesh.pop('admin_logged_in', None)
     return redirect(url_for('student.search'))
 
 
@@ -560,12 +561,10 @@ def assign_teachers():
     }).sort('name', 1))
 
     # Fetch all classes (assume you have a classes collection or hardcode)
-    classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']  # Update as needed
+    classes = [doc['name'] for doc in mongo.classes.find().sort('name', 1)]  # Update as needed
 
     # Available subjects
-    subjects = ['Mathematics', 'English Language', 'Basic Science', 'Basic Technology',
-                'Social Studies', 'Civic Education', 'Physical Education', 'Biology',
-                'Chemistry', 'Physics', 'Literature', 'Government', 'Economics']
+    subjects = [doc['name'] for doc in mongo.subjects.find().sort('name', 1)]
 
     if request.method == 'POST':
         action = request.form.get('action')
@@ -655,7 +654,7 @@ def assign_teachers():
 def term_enrollment():
     current_session = get_current_context()['session_name']  # Make dynamic later
     terms = ['First', 'Second', 'Third']
-    classes = ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3']
+    classes = [doc['name'] for doc in mongo.classes.find().sort('name', 1)]
 
     selected_term = request.form.get('term') or request.args.get('term') or get_current_context()['term']
 

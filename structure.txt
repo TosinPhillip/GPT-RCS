@@ -73,12 +73,15 @@ NEXT THINGS
 
 
 URGENT
-Redesign the student profile to show the details of the student. it should include the name, class, picture (which they uploaded), number in class
+Redesign the student profile to show the details of the student. it should include the name, class, picture (which they uploaded), number in class and studentship status (active, on probation, graduated, left, rusticated)
 
 Allow the students to be able to change their passwords when they forget it.
 
 Do not forget to also allow them to print their results in correct format.
 
-Also, allow the students to use / in their admission number and the session should also include / - DONE
 
+For the admin enrolment page, allow the admin to be able to label some students as 'graduated' or 'left' so that any student that makes it to the enrolment page has active studentship.
 
+Hash all the students passwords
+
+Add breadcrumbs on every page so that people can go back to the dashboard directly

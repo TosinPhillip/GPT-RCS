@@ -63,7 +63,6 @@
     function updateButtonState() {
         viewBtn.disabled = !(sessionSelect.value && termSelect.value);
     }
-
     sessionSelect.addEventListener('change', updateButtonState);
     termSelect.addEventListener('change', updateButtonState);
 
@@ -115,6 +114,14 @@
                                 <th class="p-6 text-center font-semibold text-gray-800">CA2</th>
                                 <th class="p-6 text-center font-semibold text-gray-800">Exam</th>
                 `;
+                if (data.results.length === 0 && data.message) {
+                    resultsContainer.innerHTML = `
+                        <div class="bg-yellow-50 border-l-4 border-yellow-400 p-6 rounded-xl text-center">
+                            <p class="text-lg text-gray-700">${data.message}</p>
+                            <p class="text-sm text-gray-600 mt-2">Check back later or contact the school admin.</p>
+                        </div>
+                    `;
+                }
 
                 if (term === 'Third') {
                     subjectsHtml += `

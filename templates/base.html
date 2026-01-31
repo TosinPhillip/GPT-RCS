@@ -27,6 +27,14 @@
                         God's Peculiar Treasure, Ilesa
                     </a>
                 </div>
+                <!-- Inside <header> or top nav -->
+                <div class="flex items-center justify-between px-6 py-4 bg-white shadow">
+                    {% if 'role' in sesh %}
+                        <a href="{{ url_for(sesh.role + '.dashboard') }}" class="fixed top-4 right-4 z-50 px-6 py-3 bg-indigo-700 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-800 transition">
+                            ← Dashboard
+                        </a>
+                    {% endif %}
+                </div>
 
                 <!-- Accordion Dropdown (Right) -->
                 <div class="relative" x-data="{ open: false }">
