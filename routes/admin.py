@@ -528,7 +528,7 @@ def create_teacher():
             'session': session_val,
             'term': term,
             'date_created': datetime.utcnow(),
-            'created_by': session.get('admin_name', 'admin')  # if you track admin
+            'created_by': sesh.get('admin_name', 'admin')  # if you track admin
         }
 
         mongo.teachers.insert_one(teacher_data)
