@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto mt-12 px-4">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-4xl font-bold text-indigo-700">{{ class_name }}</h1>
+            <p class="text-xl text-gray-600">{{ term }} Term • {{ current_session }}</p>
+        </div>
+        <button onclick="window.print()" class="px-10 py-4 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg flex items-center gap-3">
+            🖨️ Print / Save as PDF
+        </button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-10">
+            <div class="flex justify-between items-center mb-8">
+                <h2 class="text-2xl font-bold">Broadsheet - {{ assessment }} Scores</h2>
+                <div class="text-right">
+                    <div class="text-sm text-gray-600">Overall Class Average</div>
+                    <div class="text-3xl font-bold text-indigo-700">{{ overall_class_avg }}</div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-indigo-100">
+                        <tr>
+                            <th class="px-6 py-4 text-left font-semibold">Student</th>
+                            <th class="px-6 py-4 text-left font-semibold">Admission No</th>
+                            {% for sub in subjects %}
+                                <th class="px-6 py-4 text-center font-semibold">{{ sub }}</th>
+                            {% endfor %}
+                            <th class="px-6 py-4 text-center font-semibold text-indigo-700">Row Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for row in students %}
+                            <tr class="hover:bg-indigo-50">
+                                <td class="px-6 py-4 font-medium">{{ row.name }}</td>
+                                <td class="px-6 py-4">{{ row.admission_number }}</td>
+                                {% for sub in subjects %}
+                                    <td class="px-6 py-4 text-center font-bold">{{ row.scores[sub] }}</td>
+                                {% endfor %}
+                                <td class="px-6 py-4 text-center font-bold text-indigo-700">
+                                    {{ row.row_total }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                    <tfoot class="bg-indigo-50 font-bold">
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 text-right text-indigo-800">Class Average per Subject:</td>
+                            {% for sub in subjects %}
+                                <td class="px-6 py-4 text-center text-indigo-700">
+                                    {{ class_averages[sub] }}
+                                </td>
+                            {% endfor %}
+                            <td class="px-6 py-4 text-center text-indigo-700"></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    body * { visibility: hidden; }
+    .printable, .printable * { visibility: visible; }
+    .printable { position: absolute; left: 0; top: 0; width: 100%; }
+    button { display: none; }
+}
+</style>
+{% endblock %}

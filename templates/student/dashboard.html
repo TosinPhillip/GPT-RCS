@@ -10,6 +10,24 @@
             Admission Number: <span class="font-semibold">{{ student.admission_number }}</span>
             • Class: <span class="font-semibold">{{ student.class }}</span>
         </p>
+    </div
+    <div class="grid grid-cols-2 gap-8 mb-12">
+        <div>
+            <p><strong>Name:</strong> {{ student.name }}</p>
+            <p><strong>Admission No:</strong> {{ student.admission_number }}</p>
+            <p><strong>Class:</strong> {{ student.class or '—' }}</p>
+        </div>
+        <div class="text-right">
+            <p><strong>Position in Class:</strong> 
+                {% if position_in_class %}
+                    {{ position_in_class }}<sup>{{ 'st' if position_in_class % 10 == 1 and position_in_class != 11 else 'nd' if position_in_class % 10 == 2 and position_in_class != 12 else 'rd' if position_in_class % 10 == 3 and position_in_class != 13 else 'th' }}</sup> / {{ class_size }}
+                {% else %}
+                    — / {{ class_size or '—' }}
+                {% endif %}
+            </p>
+            <p><strong>Term:</strong> {{ term }}</p>
+            <p><strong>Session:</strong> {{ session }}</p>
+        </div>
     </div>
 
     <!-- Result Selector Card -->

@@ -1,7 +1,7 @@
 # routes/student.py — Updated to use student_required from utils/auth.py
 from flask import Blueprint, render_template, request, session as sesh, jsonify, redirect, url_for, flash
 from extensions import mongo
-from utils.auth import student_required  # ← Now importing the centralised decorator
+from utils.auth import student_required, calculate_position_in_class
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
 import bcrypt
 
@@ -85,6 +85,7 @@ def dashboard():
 
         for r in raw:
             results.setdefault(r['term'], []).append(r)
+    position, class_size = calculate_position_in_class(adm_no, selected_session, selected_term)
 
     return render_template(
         'student/dashboard.html',
@@ -93,7 +94,8 @@ def dashboard():
         selected_session=selected_session,
         grouped_results=results,
         student=student,
-        student_name=sesh['student_name']
+        student_name=sesh['student_name'],
+        position_in_class=position
     )
 
 # ==================== AJAX RESULT FETCH ====================

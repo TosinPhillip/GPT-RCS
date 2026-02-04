@@ -62,8 +62,7 @@ Students
 
 NEXT THINGS
 
-1. Remove the useless collections and functions, and optimize the fields of those collections. Think deep before finalizing on what should be left alone or added.
-2. Take as much details of the student as possible, add a picture option to it so that it can reflect on their profiles.
+
 3. Verify the content of the results the class teacher needs to add
 4. The content and format of the PDF result the student will be printing needs to be fixed.
 5. Someone suggested that the class teacher should be the one enrolling students into their classes, not the admin. This calls for deeper thinking and judgment before making a decision.
@@ -83,5 +82,7 @@ Do not forget to also allow them to print their results in correct format.
 For the admin enrolment page, allow the admin to be able to label some students as 'graduated' or 'left' so that any student that makes it to the enrolment page has active studentship.
 
 Hash all the students passwords
+
+Allow the class teachers to generate and print broadsheet for their class
 
 Add breadcrumbs on every page so that people can go back to the dashboard directly

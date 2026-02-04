@@ -841,3 +841,115 @@ def create_subject():
 def subjects_list():
     subjects = list(mongo.subjects.find().sort('name', 1))
     return render_template('admin/subjects_list.html', subjects=subjects)
+
+
+@admin_bp.route('/broadsheet', methods=['GET', 'POST'])
+@admin_required
+def broadsheet():
+    current_session = get_current_context()['session_name']  # or your current session logic
+
+    if request.method == 'POST':
+        class_name = request.form.get('class')
+        term = request.form.get('term')
+        assessment = request.form.get('assessment')  # 'ca1', 'ca2', 'exam', 'total'
+
+        if not all([class_name, term, assessment]):
+            flash('All fields are required', 'danger')
+            return redirect(url_for('admin.broadsheet'))
+
+        # Get students in this class/term
+        students = list(mongo.term_enrollments.find({
+            'class': class_name,
+            'session': current_session,
+            'term': term
+        }).sort('name', 1))
+
+        if not students:
+            flash(f'No students enrolled in {class_name} for {term} Term', 'info')
+            return redirect(url_for('admin.broadsheet'))
+
+        # Get distinct subjects for this class/term
+        subjects = sorted(mongo.results.distinct('subject', {
+            'class': class_name,
+            'session': current_session,
+            'term': term
+        }))
+
+        # Build table data
+        data = []
+        subject_totals = {sub: 0 for sub in subjects}  # for class average per subject
+        row_totals = []
+
+        for student in students:
+            adm_no = student['admission_number']
+            row = {
+                'name': student['name'],
+                'admission_number': adm_no,
+                'scores': {}
+            }
+            row_sum = 0
+
+            for sub in subjects:
+                result = mongo.results.find_one({
+                    'admission_number': adm_no,
+                    'subject': sub,
+                    'session': current_session,
+                    'term': term
+                })
+
+                if assessment == 'ca1':
+                    score = result.get('ca1', 0) if result else 0
+                elif assessment == 'ca2':
+                    score = result.get('ca2', 0) if result else 0
+                elif assessment == 'exam':
+                    score = result.get('exam', 0) if result else 0
+                else:  # total
+                    score = result.get('total', 0) if result else 0
+
+                row['scores'][sub] = score
+                row_sum += score
+                subject_totals[sub] += score
+
+            row['row_total'] = row_sum
+            data.append(row)
+            row_totals.append(row_sum)
+
+        # Calculate class averages per subject
+        class_averages = {}
+        for sub in subjects:
+            total = subject_totals[sub]
+            count = len(data)
+            class_averages[sub] = round(total / count, 2) if count > 0 else 0
+
+        # Overall class average (average of all row totals)
+        overall_class_avg = round(sum(row_totals) / len(row_totals), 2) if row_totals else 0
+
+        return render_template(
+            'admin/broadsheet.html',
+            class_name=class_name,
+            term=term,
+            assessment=assessment.upper(),
+            subjects=subjects,
+            students=data,
+            class_averages=class_averages,
+            overall_class_avg=overall_class_avg,
+            current_session=current_session
+        )
+
+    # GET - form
+    classes = sorted(mongo.term_enrollments.distinct('class', {'session': current_session}))
+    terms = ['First', 'Second', 'Third']
+    assessments = [
+        ('ca1', 'CA1'),
+        ('ca2', 'CA2'),
+        ('exam', 'Exam'),
+        ('total', 'Total Score')
+    ]
+
+    return render_template(
+        'admin/broadsheet_form.html',
+        classes=classes,
+        terms=terms,
+        assessments=assessments,
+        current_session=current_session
+    )
