@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-7xl mx-auto mt-12 px-4">
+    <div class="flex justify-between items-center mb-8">
+        <div>
+            <h1 class="text-4xl font-bold text-teal-700">{{ class_name }}</h1>
+            <p class="text-xl text-gray-600">{{ term }} Term • {{ current_session }}</p>
+        </div>
+        <button onclick="window.print()" 
+                class="px-10 py-4 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-xl shadow-lg flex items-center gap-3">
+            🖨️ Print / Save as PDF
+        </button>
+    </div>
+
+    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+        <div class="p-10">
+            <h2 class="text-2xl font-bold mb-8">Broadsheet - {{ class_name }}</h2>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-teal-100">
+                        <tr>
+                            <th class="px-6 py-4 text-left font-semibold">Student</th>
+                            <th class="px-6 py-4 text-left font-semibold">Admission No</th>
+                            {% for sub in subjects %}
+                                <th class="px-6 py-4 text-center font-semibold">{{ sub }}</th>
+                            {% endfor %}
+                            <th class="px-6 py-4 text-center font-semibold text-teal-700">Row Total</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for student in students %}
+                            <tr class="hover:bg-teal-50">
+                                <td class="px-6 py-4 font-medium">{{ student.name }}</td>
+                                <td class="px-6 py-4">{{ student.admission_number }}</td>
+                                {% for sub in subjects %}
+                                    <td class="px-6 py-4 text-center font-bold">
+                                        {% set result = student.get('results', {}).get(sub, {}) %}
+                                        {{ result.get('total', 0) }}
+                                    </td>
+                                {% endfor %}
+                                <td class="px-6 py-4 text-center font-bold text-teal-700">
+                                    {{ student.row_total or 0 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@media print {
+    body * { visibility: hidden; }
+    #printable-broadsheet, #printable-broadsheet * { visibility: visible; }
+    #printable-broadsheet { position: absolute; left: 0; top: 0; width: 100%; }
+    button { display: none; }
+}
+</style>
+{% endblock %}

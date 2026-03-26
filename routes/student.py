@@ -75,6 +75,7 @@ def dashboard():
 
     # Default to latest session
     selected_session = request.args.get('session', student_sessions[-1] if student_sessions else None)
+    
 
     results = {}
     if selected_session:
@@ -85,7 +86,7 @@ def dashboard():
 
         for r in raw:
             results.setdefault(r['term'], []).append(r)
-    position, class_size = calculate_position_in_class(adm_no, selected_session, selected_term)
+    position, class_size = calculate_position_in_class(adm_no, selected_session, current_term)
 
     return render_template(
         'student/dashboard.html',
@@ -95,7 +96,9 @@ def dashboard():
         grouped_results=results,
         student=student,
         student_name=sesh['student_name'],
-        position_in_class=position
+        position_in_class=position,
+        current_term=current_term,
+        results=results
     )
 
 # ==================== AJAX RESULT FETCH ====================
@@ -105,25 +108,22 @@ def dashboard():
 @student_required
 def get_results():
     adm_no = sesh['adm_no']
-
-    # Get selected session and term from query params (sent by JS)
     session_name = request.args.get('session')
     term_name = request.args.get('term')
 
     if not session_name or not term_name:
         return jsonify({'error': 'Session and term are required'}), 400
 
-    # Check visibility using the selected term's enrollment
+    # Check visibility
     enrollment = mongo.term_enrollments.find_one({
         'admission_number': adm_no,
         'session': session_name,
         'term': term_name
     })
-
     if not enrollment or not enrollment.get('results_visible', True):
         return jsonify({'error': 'Results are currently hidden by administration for this term'}), 403
 
-    # Fetch results for the **selected** session + term
+    # Fetch results for selected session + term
     subject_docs = list(mongo.results.find({
         'admission_number': adm_no,
         'session': session_name,
@@ -164,12 +164,20 @@ def get_results():
             'position': doc.get('position', '—'),
         })
 
-    # Aggregates (use first doc for metadata if consistent)
+    # Get Class Teacher's Comment from student_term_profiles
+    profile = mongo.student_term_profiles.find_one({
+        'admission_number': adm_no,
+        'session': session_name,
+        'term': term_name
+    }) or {}
+
+    teacher_comment = profile.get('class_teacher_comment', '')
+
+    # Aggregates
     first_doc = subject_docs[0] if subject_docs else {}
     average = round(grand_total / len(subjects), 2) if subjects else 0
     class_average = first_doc.get('class_average')
     overall_position = first_doc.get('overall_position')
-    teacher_comment = first_doc.get('teacher_comment')
 
     result_payload = {
         'subjects': subjects,
@@ -177,7 +185,7 @@ def get_results():
         'average': average,
         'class_average': class_average,
         'overall_position': overall_position,
-        'teacher_comment': teacher_comment,
+        'teacher_comment': teacher_comment,   # ← Now included
     }
 
     return jsonify({'results': [result_payload]})

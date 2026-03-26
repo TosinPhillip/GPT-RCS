@@ -1,17 +1,21 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="max-w-7xl mx-auto mt-12 px-4">
+
+    <!-- Header with Print Button -->
     <div class="flex justify-between items-center mb-8">
         <div>
             <h1 class="text-4xl font-bold text-indigo-700">{{ class_name }}</h1>
             <p class="text-xl text-gray-600">{{ term }} Term • {{ current_session }}</p>
         </div>
-        <button onclick="window.print()" class="px-10 py-4 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg flex items-center gap-3">
+        <button onclick="printBroadsheet()" 
+                class="px-10 py-4 bg-indigo-700 hover:bg-indigo-600 text-white font-bold rounded-xl shadow-lg flex items-center gap-3">
             🖨️ Print / Save as PDF
         </button>
     </div>
 
-    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
+    <!-- Broadsheet Content -->
+    <div id="broadsheet-content" class="bg-white rounded-2xl shadow-xl overflow-hidden">
         <div class="p-10">
             <div class="flex justify-between items-center mb-8">
                 <h2 class="text-2xl font-bold">Broadsheet - {{ assessment }} Scores</h2>
@@ -64,12 +68,91 @@
     </div>
 </div>
 
+<!-- ====================== PRINTABLE BROADSHEET (Only this will print) ====================== -->
+<div id="printable-broadsheet" class="hidden print:block fixed inset-0 bg-white p-12 overflow-auto">
+    <div class="max-w-7xl mx-auto">
+        <div class="text-center mb-12 border-b pb-8">
+            <h1 class="text-5xl font-bold text-indigo-900">God's Peculiar Treasure School</h1>
+            <p class="text-2xl text-gray-700 mt-3">{{ class_name }} - Broadsheet</p>
+            <p class="text-xl text-gray-600">{{ term }} Term • {{ current_session }}</p>
+        </div>
+
+        <div class="mb-8">
+            <h2 class="text-3xl font-bold text-center mb-6">Broadsheet - {{ assessment }} Scores</h2>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-400 border border-gray-400">
+                <thead>
+                    <tr class="bg-indigo-100">
+                        <th class="border border-gray-400 p-4 text-left font-semibold">Student</th>
+                        <th class="border border-gray-400 p-4 text-left font-semibold">Admission No</th>
+                        {% for sub in subjects %}
+                            <th class="border border-gray-400 p-4 text-center font-semibold">{{ sub }}</th>
+                        {% endfor %}
+                        <th class="border border-gray-400 p-4 text-center font-semibold text-indigo-700">Row Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-400">
+                    {% for row in students %}
+                        <tr>
+                            <td class="border border-gray-400 p-4">{{ row.name }}</td>
+                            <td class="border border-gray-400 p-4">{{ row.admission_number }}</td>
+                            {% for sub in subjects %}
+                                <td class="border border-gray-400 p-4 text-center font-bold">{{ row.scores[sub] }}</td>
+                            {% endfor %}
+                            <td class="border border-gray-400 p-4 text-center font-bold text-indigo-700">
+                                {{ row.row_total }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="bg-indigo-50 font-bold">
+                        <td colspan="2" class="border border-gray-400 p-4 text-right text-indigo-800">Class Average per Subject:</td>
+                        {% for sub in subjects %}
+                            <td class="border border-gray-400 p-4 text-center text-indigo-700">
+                                {{ class_averages[sub] }}
+                            </td>
+                        {% endfor %}
+                        <td class="border border-gray-400 p-4 text-center text-indigo-700"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="text-center mt-16 text-gray-500 text-sm">
+            Generated on {{ current_session }} • God's Peculiar Treasure School
+        </div>
+    </div>
+</div>
+
+<script>
+    function printBroadsheet() {
+        window.print();
+    }
+</script>
+
 <style>
 @media print {
-    body * { visibility: hidden; }
-    .printable, .printable * { visibility: visible; }
-    .printable { position: absolute; left: 0; top: 0; width: 100%; }
-    button { display: none; }
+    body * { 
+        visibility: hidden; 
+    }
+    #printable-broadsheet, 
+    #printable-broadsheet * { 
+        visibility: visible; 
+    }
+    #printable-broadsheet { 
+        position: absolute; 
+        left: 0; 
+        top: 0; 
+        width: 100%; 
+        margin: 0; 
+        padding: 40px; 
+    }
+    button, .no-print { 
+        display: none !important; 
+    }
 }
 </style>
 {% endblock %}

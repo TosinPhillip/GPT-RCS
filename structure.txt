@@ -61,28 +61,17 @@ Students
 
 
 NEXT THINGS
-
-
-3. Verify the content of the results the class teacher needs to add
-4. The content and format of the PDF result the student will be printing needs to be fixed.
-5. Someone suggested that the class teacher should be the one enrolling students into their classes, not the admin. This calls for deeper thinking and judgment before making a decision.
-6. Go over the workflow and clear all redundancies; keep a documentation of how things flow from collection to collection because of the future.
-
-
+1. Go over the workflow and clear all redundancies; keep a documentation of how things flow from collection to collection because of the future.
 
 
 URGENT
-Redesign the student profile to show the details of the student. it should include the name, class, picture (which they uploaded), number in class and studentship status (active, on probation, graduated, left, rusticated)
+2. Redesign the student profile to show the details of the student. it should include the name, class, picture (which they uploaded), number in class and studentship status (active, on probation, graduated, left, rusticated)
 
-Allow the students to be able to change their passwords when they forget it.
+2. Allow the students to be able to change their passwords when they forget it.
 
-Do not forget to also allow them to print their results in correct format.
+3. For the admin enrolment page, allow the admin to be able to label some students as 'graduated' or 'left' so that any student that makes it to the enrolment page has active studentship.
 
+4. Add breadcrumbs on every page so that people can go back to the dashboard directly
 
-For the admin enrolment page, allow the admin to be able to label some students as 'graduated' or 'left' so that any student that makes it to the enrolment page has active studentship.
-
-Hash all the students passwords
-
-Allow the class teachers to generate and print broadsheet for their class
-
-Add breadcrumbs on every page so that people can go back to the dashboard directly
+5. The broadsheet is showing zero all through, see to it. 
+6. Allow  the students to be able to see their class teacher's comment too

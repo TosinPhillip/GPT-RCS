@@ -54,49 +54,41 @@ def logout():
 @teacher_required
 def dashboard():
     teacher_email = sesh['teacher_email']
-    teacher_session = sesh['teacher_session']
-    teacher_term = sesh['teacher_term']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
 
-    # Fetch teacher profile
     teacher = mongo.teachers.find_one({
         'email': teacher_email,
-        'session': teacher_session,
-        'term': teacher_term
+        'session': session_val,
+        'term': term
     })
 
     if not teacher:
         flash('Teacher profile not found for current term.', 'error')
         return redirect(url_for('teacher.logout'))
 
-    # Fetch subject assignments
+    # Subject assignments
     subject_assignments = list(mongo.subject_assignments.find({
         'teacher_email': teacher_email,
-        'session': teacher_session,
-        'term': teacher_term
+        'session': session_val,
+        'term': term
     }))
 
-    assigned_subjects_count = len(subject_assignments)
-    assigned_subjects = list(mongo.subject_assignments.find({
-    'teacher_email': teacher_email,
-    'session': teacher_session,
-    'term': teacher_term
-}).sort('subject', 1))
-
-    # Fetch class teacher assignment
-    class_assignment = mongo.class_assignments.find_one({
+    # Class teacher assignments - Support MULTIPLE classes
+    class_assignments = list(mongo.class_assignments.find({
         'teacher_email': teacher_email,
-        'session': teacher_session,
-        'term': teacher_term
-    })
-    class_teacher_of = class_assignment['class'] if class_assignment else None
+        'session': session_val,
+        'term': term
+    }))
 
-    # Optional: Pass full lists if you want to display them
+    class_teacher_of = [ca['class'] for ca in class_assignments]  # List of classes
+
     return render_template(
         'teacher/dashboard.html',
         teacher=teacher,
-        assigned_subjects_count=assigned_subjects_count,
-        assigned_subjects=subject_assignments,  # List of dicts for display
-        class_teacher_of=class_teacher_of
+        assigned_subjects_count=len(subject_assignments),
+        assigned_subjects=subject_assignments,
+        class_teacher_of=class_teacher_of   # Now a list
     )
 # ==================== UPLOAD RESULT ====================
 # New Form for Scores (per student, but we'll use dynamic in template)
@@ -670,9 +662,57 @@ def save_subject_scores():
     flash('Scores saved successfully with grades, positions, and class average!', 'success')
     return redirect(url_for('teacher.subject_detail', subject=subject, class_name=class_name))
 
-
+# ======================= Broad sheet ===============
 def get_grade_and_remark(total):
     for min_score, max_score, grade, remark in GRADE_SCALE:
         if min_score <= total <= max_score:
             return grade, remark
     return 'F', 'Failed'  # fallback
+
+
+@teacher_bp.route('/broadsheet/<class_name>')
+@teacher_required
+def teacher_broadsheet(class_name):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    # Security: Ensure this teacher is assigned as class teacher for this class
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('You are not the class teacher for this class.', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Get all students in this class for the term
+    students = list(mongo.term_enrollments.find({
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }).sort('name', 1))
+
+    if not students:
+        flash(f'No students enrolled in {class_name} for {term} Term.', 'info')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Get all subjects that have results in this class/term
+    subjects = sorted(mongo.results.distinct('subject', {
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }))
+
+    return render_template(
+        'teacher/broadsheet.html',
+        class_name=class_name,
+        term=term,
+        current_session=session_val,
+        students=students,
+        subjects=subjects
+    )
+
+
