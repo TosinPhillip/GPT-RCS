@@ -345,47 +345,61 @@ def create_default_result(adm_no, subject, class_name, session_val, term):
 @teacher_bp.route('/enroll_student', methods=['POST'])
 @teacher_required
 def enroll_student():
-    subject = request.form['subject']
-    class_name = request.form['class']
-    adm_no = request.form['adm_no']
-    action = request.form['action']  # 'enroll' or 'unenroll'
-    session_val = sesh['teacher_session']
-    term = sesh['teacher_term']
+    try:
+        subject = request.form.get('subject')
+        class_name = request.form.get('class')
+        adm_no = request.form.get('adm_no')
+        action = request.form.get('action')
 
-    enrollment = mongo.subject_enrollments.find_one({
-        'subject': subject,
-        'class': class_name,
-        'session': session_val,
-        'term': term
-    })
+        if not all([subject, class_name, adm_no, action]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
 
-    if enrollment:
-        enrolled = set(enrollment['enrolled_students'])
+        session_val = sesh['teacher_session']
+        term = sesh['teacher_term']
+
+        filter_query = {
+            'subject': subject,
+            'class': class_name,
+            'session': session_val,
+            'term': term
+        }
+
+        # Get or create enrollment document
+        enrollment = mongo.subject_enrollments.find_one(filter_query)
+
+        if not enrollment:
+            enrollment = {**filter_query, 'enrolled_admission_numbers': []}
+            mongo.subject_enrollments.insert_one(enrollment)
+
+        enrolled = set(enrollment.get('enrolled_admission_numbers', []))
 
         if action == 'enroll':
-            if adm_no not in enrolled:
-                enrolled.add(adm_no)
-                # Create default result
-                create_default_result(adm_no, subject, class_name, session_val, term)
+            enrolled.add(adm_no)
+            # Create default result if enrolling
+            create_default_result(adm_no, subject, class_name, session_val, term)
         elif action == 'unenroll':
-            if adm_no in enrolled:
-                enrolled.remove(adm_no)
-                # Optional: Delete result? Or keep for history
-                mongo.results.delete_one({
-                    'admission_number': adm_no,
-                    'subject': subject,
-                    'session': session_val,
-                    'term': term
-                })
+            enrolled.discard(adm_no)
+            # Optional: delete result when unenrolling
+            mongo.results.delete_one({
+                'admission_number': adm_no,
+                'subject': subject,
+                'session': session_val,
+                'term': term
+            })
 
+        # Save back
         mongo.subject_enrollments.update_one(
-            {'_id': enrollment['_id']},
-            {'$set': {'enrolled_students': list(enrolled)}}
+            filter_query,
+            {'$set': {'enrolled_admission_numbers': list(enrolled)}}
         )
 
         return jsonify({'success': True})
 
-    return jsonify({'success': False, 'error': 'Enrollment not found'}), 400
+    except Exception as e:
+        print("Enroll Student Error:", str(e))
+        return jsonify({'success': False, 'error': str(e)}), 500
+        
+"""
 
 # AJAX Route: Save Scores & Auto-Calculate
 @teacher_bp.route('/save_scores', methods=['POST'])
@@ -434,6 +448,7 @@ def save_scores():
         return jsonify({'success': True, 'total': total})
 
     return jsonify({'success': False, 'error': 'Result not found'}), 400
+    """
     
 # Class Detail — List Students (Clickable Names)
 @teacher_bp.route('/class/<class_name>')

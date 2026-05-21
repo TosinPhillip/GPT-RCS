@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="max-w-6xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
         <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10 text-center">
             <h1 class="text-4xl font-bold mb-4">{{ subject }} - {{ class_name }}</h1>
             <p class="text-xl opacity-90">{{ session }} • {{ term }} Term</p>
@@ -10,39 +10,30 @@
         <div class="p-10 space-y-12">
             <!-- Enrollment Section -->
             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8">
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-bold text-indigo-800">
-                        Enroll Students Offering {{ subject }} ({{ enrolled_count }}/{{ students|length }})
-                    </h3>
-                    <button id="toggle-edit" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition">
-                        Edit Scores
-                    </button>
-                </div>
-
+                <h3 class="text-2xl font-bold text-indigo-800 mb-6">Enroll Students for {{ subject }}</h3>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                     {% for student in students %}
                         {% set adm_no = student.admission_number %}
                         {% set is_enrolled = adm_no in enrolled_student_ids %}
-                        <label class="flex items-center p-4 bg-white rounded-xl shadow hover:shadow-md cursor-pointer transition">
-                            <input type="checkbox"
+                        <label class="flex items-center p-5 bg-white rounded-2xl shadow hover:shadow-md cursor-pointer transition">
+                            <input type="checkbox" 
                                    class="enroll-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500"
                                    value="{{ adm_no }}"
                                    {% if is_enrolled %}checked{% endif %}>
                             <span class="ml-4 text-lg">
                                 <strong>{{ student.name }}</strong>
-                                <span class="text-gray-600">({{ adm_no }})</span>
-                                {% if is_enrolled %}
-                                    <span class="ml-4 text-green-600 font-bold">Enrolled</span>
-                                {% endif %}
+                                <span class="text-gray-600 ml-2">({{ adm_no }})</span>
+                                {% if is_enrolled %}<span class="ml-4 text-green-600 font-bold">✓ Enrolled</span>{% endif %}
                             </span>
                         </label>
                     {% endfor %}
                 </div>
             </div>
 
-            <!-- Results Table -->
-            <div id="results-container" class="{% if not enrolled_student_ids %}hidden{% endif %} bg-white rounded-2xl shadow-xl p-8">
-                <h3 class="text-2xl font-bold text-indigo-800 mb-6">Scores</h3>
+            <!-- Scores Table -->
+            <div id="results-container" class="{% if not enrolled_student_ids %}hidden{% endif %} bg-white rounded-3xl shadow-xl p-10">
+                <h3 class="text-2xl font-bold text-indigo-800 mb-8">Enter Scores</h3>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead class="bg-indigo-100">
@@ -55,30 +46,18 @@
                                     <th class="px-6 py-4 text-center">1st Term Total</th>
                                     <th class="px-6 py-4 text-center">2nd Term Total</th>
                                 {% endif %}
-                                <th class="px-6 py-4 text-center">Overall Total</th>
-                                <th class="px-6 py-4 text-center">Grade</th>
-                                <th class="px-6 py-4 text-center">Position</th>
+                                <th class="px-6 py-4 text-center font-semibold text-indigo-700">Overall Total</th>
                             </tr>
                         </thead>
-                        <tbody id="results-tbody" class="bg-white divide-y divide-gray-200">
+                        <tbody id="scores-tbody" class="bg-white divide-y divide-gray-200">
                             <!-- Filled by JS -->
                         </tbody>
-                        <tfoot class="bg-indigo-50 font-bold">
-                            <tr>
-                                <td colspan="{% if term == 'Third' %}10{% else %}8{% endif %}" class="px-6 py-4 text-right text-indigo-800">
-                                    Class Average:
-                                </td>
-                                <td class="px-6 py-4 text-center text-2xl text-indigo-700" id="class-average">
-                                    {{ class_average|round(2) }}
-                                </td>
-                            </tr>
-                        </tfoot>
                     </table>
                 </div>
 
                 <div class="text-center mt-10">
-                    <button id="save-all" class="px-12 py-5 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-xl shadow-lg transition hidden">
-                        Save All Changes
+                    <button id="save-all" class="px-12 py-5 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-2xl shadow-lg transition hidden">
+                        Save All Scores
                     </button>
                 </div>
             </div>
@@ -87,154 +66,104 @@
 </div>
 
 <script>
+    let enrolledIds = {{ enrolled_student_ids | tojson }};
     const allStudents = {{ students | tojson }};
     const existingScores = {{ existing_scores | tojson }};
-    const enrolledIds = {{ enrolled_student_ids | tojson }};
     const term = '{{ term }}';
-    const classAverage = {{ class_average|round(2) }};
 
-    const tbody = document.getElementById('results-tbody');
+    const tbody = document.getElementById('scores-tbody');
     const resultsContainer = document.getElementById('results-container');
-    const toggleEditBtn = document.getElementById('toggle-edit');
     const saveBtn = document.getElementById('save-all');
-    let editMode = false;
 
-   function renderTable() {
-    tbody.innerHTML = '';
-    if (enrolledIds.length === 0) {
-        resultsContainer.classList.add('hidden');
-        return;
-    }
-    resultsContainer.classList.remove('hidden');
+    function renderScoresTable() {
+        tbody.innerHTML = '';
 
-    enrolledIds.forEach(admNo => {
-        const student = allStudents.find(s => s.admission_number === admNo);
-        const score = existingScores[admNo] || {};
-
-        const ca1 = score.ca1 || 0;
-        const ca2 = score.ca2 || 0;
-        const exam = score.exam || 0;
-        let currentTotal = ca1 + ca2 + exam;
-
-        let prevCols = '';
-        let overallTotal = currentTotal;
-        if (term === 'Third') {
-            const prev = previousTotals[admNo] || {};
-            const firstTotal = prev.first || 0;
-            const secondTotal = prev.second || 0;
-            overallTotal = Math.round((firstTotal + secondTotal + currentTotal) / 3 * 100) / 100;
-
-            prevCols = `
-                <td class="px-6 py-4 text-center view-mode font-medium">${firstTotal}</td>
-                <td class="px-6 py-4 text-center view-mode font-medium">${secondTotal}</td>
-                <td class="px-6 py-4 text-center edit-mode hidden">
-                    <input type="text" value="${firstTotal}" readonly class="w-20 bg-gray-100 border rounded px-2 py-1">
-                </td>
-                <td class="px-6 py-4 text-center edit-mode hidden">
-                    <input type="text" value="${secondTotal}" readonly class="w-20 bg-gray-100 border rounded px-2 py-1">
-                </td>
-            `;
+        if (enrolledIds.length === 0) {
+            resultsContainer.classList.add('hidden');
+            return;
         }
 
-        const grade = score.grade || '-';
-        const remark = score.remark || '';
-        const position = score.position || '—';
+        resultsContainer.classList.remove('hidden');
 
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td class="px-6 py-4 font-medium">${student.name} <span class="text-gray-600">(${admNo})</span></td>
-            <td class="px-6 py-4 text-center view-mode">${ca1}</td>
-            <td class="px-6 py-4 text-center view-mode">${ca2}</td>
-            <td class="px-6 py-4 text-center view-mode">${exam}</td>
-            ${prevCols}
-            <td class="px-6 py-4 text-center view-mode font-bold text-indigo-700">${overallTotal.toFixed(2)}</td>
-            <td class="px-6 py-4 text-center view-mode font-bold">${grade}</td>
-            <td class="px-6 py-4 text-center view-mode">${remark}</td>
-            <td class="px-6 py-4 text-center view-mode font-bold text-purple-700">${position}</td>
+        enrolledIds.forEach(admNo => {
+            const student = allStudents.find(s => s.admission_number === admNo);
+            if (!student) return;
 
-            <!-- Edit Mode Inputs -->
-            <td class="px-6 py-4 text-center edit-mode hidden">
-                <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="ca1" value="${ca1}" min="0" max="15">
-            </td>
-            <td class="px-6 py-4 text-center edit-mode hidden">
-                <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="ca2" value="${ca2}" min="0" max="15">
-            </td>
-            <td class="px-6 py-4 text-center edit-mode hidden">
-                <input type="number" class="score-input w-20 border rounded px-2 py-1" data-field="exam" value="${exam}" min="0" max="70">
-            </td>
-            ${term === 'Third' ? '<td colspan="2" class="edit-mode hidden"></td>' : ''}
-            <td class="px-6 py-4 text-center edit-mode hidden font-bold text-indigo-700"><span class="total-display">${overallTotal.toFixed(2)}</span></td>
-            <td colspan="3" class="edit-mode hidden"></td>
-        `;
-        tbody.appendChild(row);
-    });
-}
+            const score = existingScores[admNo] || {};
 
-    function enforceMax(input) {
-    if (input.value > input.max) {
-        input.value = input.max;
-    }
-    if (input.value < input.min) {
-        input.value = input.min;
-    }
-    calcTotal(input);  // Recalculate total after clamping
-}
+            const ca1 = score.ca1 || 0;
+            const ca2 = score.ca2 || 0;
+            const exam = score.exam || 0;
+            let total = ca1 + ca2 + exam;
 
-    function toggleEditMode() {
-        editMode = !editMode;
-        toggleEditBtn.textContent = editMode ? 'View Mode' : 'Edit Scores';
-        toggleEditBtn.classList.toggle('bg-red-600', editMode);
-        document.querySelectorAll('.view-mode').forEach(el => el.classList.toggle('hidden', editMode));
-        document.querySelectorAll('.edit-mode').forEach(el => el.classList.toggle('hidden', !editMode));
-        saveBtn.classList.toggle('hidden', !editMode);
-    }
-
-    // Checkbox change → update enrollment (add/remove from enrolledIds for render)
-    document.querySelectorAll('.enroll-checkbox').forEach(cb => {
-        cb.addEventListener('change', () => {
-            const admNo = cb.value;
-            if (cb.checked && !enrolledIds.includes(admNo)) {
-                enrolledIds.push(admNo);
-            } else if (!cb.checked) {
-                const index = enrolledIds.indexOf(admNo);
-                if (index > -1) enrolledIds.splice(index, 1);
+            let cumCols = '';
+            if (term === 'Third') {
+                const cum1 = score.cumulative1 || 0;
+                const cum2 = score.cumulative2 || 0;
+                total = Math.round((cum1 + cum2 + total) / 3 * 100) / 100;
+                cumCols = `
+                    <td class="px-6 py-4 text-center">${cum1}</td>
+                    <td class="px-6 py-4 text-center">${cum2}</td>
+                `;
             }
-            renderTable();
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="px-6 py-4 font-medium">${student.name} <span class="text-gray-600">(${admNo})</span></td>
+                <td class="px-6 py-4 text-center">
+                    <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" 
+                           data-field="ca1" value="${ca1}" min="0" max="15">
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" 
+                           data-field="ca2" value="${ca2}" min="0" max="15">
+                </td>
+                <td class="px-6 py-4 text-center">
+                    <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" 
+                           data-field="exam" value="${exam}" min="0" max="70">
+                </td>
+                ${cumCols}
+                <td class="px-6 py-4 text-center font-bold text-indigo-700 total-cell">${total.toFixed(2)}</td>
+            `;
+            tbody.appendChild(row);
+        });
+    }
+
+    // Real-time Enrollment
+    document.querySelectorAll('.enroll-checkbox').forEach(cb => {
+        cb.addEventListener('change', async () => {
+            const admNo = cb.value;
+            const action = cb.checked ? 'enroll' : 'unenroll';
+
+            const formData = new FormData();
+            formData.append('subject', '{{ subject }}');
+            formData.append('class', '{{ class_name }}');
+            formData.append('adm_no', admNo);
+            formData.append('action', action);
+
+            try {
+                const res = await fetch('/teacher/enroll_student', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.success) {
+                    if (action === 'enroll') {
+                        if (!enrolledIds.includes(admNo)) enrolledIds.push(admNo);
+                    } else {
+                        enrolledIds = enrolledIds.filter(id => id !== admNo);
+                    }
+                    renderScoresTable();
+                } else {
+                    alert('Failed to update enrollment');
+                    cb.checked = !cb.checked;
+                }
+            } catch (e) {
+                alert('Network error. Please try again.');
+                cb.checked = !cb.checked;
+            }
         });
     });
 
-    toggleEditBtn.addEventListener('click', toggleEditMode);
-
-    saveBtn.addEventListener('click', async () => {
-        const formData = new FormData();
-        formData.append('subject', '{{ subject }}');
-        formData.append('class', '{{ class_name }}');
-        formData.append('term', '{{ term }}');
-
-        // Enrolled
-        enrolledIds.forEach(id => formData.append('enrolled_students', id));
-
-        // Scores
-        document.querySelectorAll('#results-tbody .score-input').forEach(input => {
-            const admNo = input.closest('tr').querySelector('td').innerText.match(/\(([^)]+)\)/)[1];
-            const field = input.dataset.field;
-            formData.append(`${field}_${admNo}`, input.value);
-        });
-
-        const res = await fetch('{{ url_for("teacher.save_subject_scores") }}', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (res.ok) {
-            alert('Saved successfully!');
-            location.reload();
-        } else {
-            alert('Error saving');
-        }
-    });
-
-    // Initial render — shows enrolled students + existing scores
-    renderTable();
+    // Initial render
+    renderScoresTable();
 </script>
 {% endblock %}
