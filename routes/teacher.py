@@ -26,19 +26,36 @@ GRADE_SCALE = [
 def login():
     if request.method == 'POST':
         email = request.form['email'].strip().lower()
-        phone_password = request.form['password'].strip()  # Phone number as password
+        phone_password = request.form['password'].strip()
 
-        teacher = mongo.teachers.find_one({'email': email})
+        # Get the CURRENT active term
+        current_term = get_current_context()['term']   # Make sure this returns the active term
 
-        if teacher and teacher['phone'] == phone_password:
+        # Find teacher profile for the CURRENT term first
+        teacher = mongo.teachers.find_one({
+            'email': email,
+            'phone': phone_password,
+            'term': current_term
+        })
+
+        # If not found in current term, check any term (fallback)
+        if not teacher:
+            teacher = mongo.teachers.find_one({
+                'email': email,
+                'phone': phone_password
+            })
+
+        if teacher:
             sesh['teacher_email'] = teacher['email']
             sesh['teacher_name'] = teacher['name']
             sesh['teacher_session'] = teacher['session']
             sesh['teacher_term'] = teacher['term']
             sesh['role'] = 'teacher'
+
+            flash(f'Logged in successfully for {teacher["term"]} Term', 'success')
             return redirect(url_for('teacher.dashboard'))
 
-        flash('Invalid email or phone number (password)', 'error')
+        flash('Invalid email or phone number', 'error')
 
     return render_template('teacher/login.html')
 
