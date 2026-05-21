@@ -10,8 +10,13 @@
         <div class="p-10 space-y-12">
             <!-- Enrollment Section -->
             <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8">
-                <h3 class="text-2xl font-bold text-indigo-800 mb-6">Enroll Students for {{ subject }}</h3>
-                
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-2xl font-bold text-indigo-800">Enroll Students for {{ subject }}</h3>
+                    <button id="toggle-edit" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl transition">
+                        Edit Scores
+                    </button>
+                </div>
+
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
                     {% for student in students %}
                         {% set adm_no = student.admission_number %}
@@ -49,9 +54,7 @@
                                 <th class="px-6 py-4 text-center font-semibold text-indigo-700">Overall Total</th>
                             </tr>
                         </thead>
-                        <tbody id="scores-tbody" class="bg-white divide-y divide-gray-200">
-                            <!-- Filled by JS -->
-                        </tbody>
+                        <tbody id="scores-tbody" class="bg-white divide-y divide-gray-200"></tbody>
                     </table>
                 </div>
 
@@ -73,7 +76,9 @@
 
     const tbody = document.getElementById('scores-tbody');
     const resultsContainer = document.getElementById('results-container');
+    const toggleEditBtn = document.getElementById('toggle-edit');
     const saveBtn = document.getElementById('save-all');
+    let editMode = false;
 
     function renderScoresTable() {
         tbody.innerHTML = '';
@@ -110,23 +115,46 @@
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td class="px-6 py-4 font-medium">${student.name} <span class="text-gray-600">(${admNo})</span></td>
-                <td class="px-6 py-4 text-center">
+                <td class="px-6 py-4 text-center view-mode">${ca1}</td>
+                <td class="px-6 py-4 text-center view-mode">${ca2}</td>
+                <td class="px-6 py-4 text-center view-mode">${exam}</td>
+                ${cumCols}
+                <td class="px-6 py-4 text-center view-mode font-bold text-indigo-700">${total.toFixed(2)}</td>
+
+                <!-- Edit Mode Inputs -->
+                <td class="px-6 py-4 text-center edit-mode hidden">
                     <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" 
                            data-field="ca1" value="${ca1}" min="0" max="15">
                 </td>
-                <td class="px-6 py-4 text-center">
+                <td class="px-6 py-4 text-center edit-mode hidden">
                     <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" 
                            data-field="ca2" value="${ca2}" min="0" max="15">
                 </td>
-                <td class="px-6 py-4 text-center">
+                <td class="px-6 py-4 text-center edit-mode hidden">
                     <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" 
                            data-field="exam" value="${exam}" min="0" max="70">
                 </td>
-                ${cumCols}
-                <td class="px-6 py-4 text-center font-bold text-indigo-700 total-cell">${total.toFixed(2)}</td>
+                ${term === 'Third' ? `
+                <td class="px-6 py-4 text-center edit-mode hidden">
+                    <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" data-field="cumulative1" value="${score.cumulative1 || 0}">
+                </td>
+                <td class="px-6 py-4 text-center edit-mode hidden">
+                    <input type="number" class="score-input w-20 border rounded px-3 py-2 text-center" data-field="cumulative2" value="${score.cumulative2 || 0}">
+                </td>` : ''}
+                <td class="px-6 py-4 text-center edit-mode hidden font-bold text-indigo-700">
+                    <span class="total-display">${total.toFixed(2)}</span>
+                </td>
             `;
             tbody.appendChild(row);
         });
+    }
+
+    function toggleEditMode() {
+        editMode = !editMode;
+        toggleEditBtn.textContent = editMode ? 'View Mode' : 'Edit Scores';
+        document.querySelectorAll('.view-mode').forEach(el => el.classList.toggle('hidden', editMode));
+        document.querySelectorAll('.edit-mode').forEach(el => el.classList.toggle('hidden', !editMode));
+        saveBtn.classList.toggle('hidden', !editMode);
     }
 
     // Real-time Enrollment
@@ -162,6 +190,8 @@
             }
         });
     });
+
+    toggleEditBtn.addEventListener('click', toggleEditMode);
 
     // Initial render
     renderScoresTable();
