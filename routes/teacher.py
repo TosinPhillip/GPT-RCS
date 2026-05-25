@@ -956,14 +956,14 @@ def primary_class_students(class_name):
                            students=students)
 
 
-@teacher_bp.route('/primary_student_entry/<class_name>/<adm_no>')
+@teacher_bp.route('/primary_student_entry/<class_name>/<regex(".*"):adm_no>')
 @teacher_required
 def primary_student_entry(class_name, adm_no):
     teacher_email = sesh['teacher_email']
     session_val = sesh['teacher_session']
     term = sesh['teacher_term']
 
-    # Security check
+    # Security
     assignment = mongo.class_assignments.find_one({
         'teacher_email': teacher_email,
         'class': class_name,
@@ -976,13 +976,16 @@ def primary_student_entry(class_name, adm_no):
 
     student = mongo.term_enrollments.find_one({'admission_number': adm_no})
 
-    # Get subjects for this primary class
+    # Get subjects for this class
     class_subjects_doc = mongo.primary_class_subjects.find_one({'class_name': class_name})
-    subjects = class_subjects_doc['subjects'] if class_subjects_doc else ["Mathematics", "English", "Basic Science"]
+    subjects = class_subjects_doc.get('subjects', []) if class_subjects_doc else ["Mathematics", "English", "Basic Science"]
+
+    psychomotor_skills = ["Punctuality", "Neatness", "Honesty", "Leadership", "Politeness", "Teamwork", "Initiative", "Reliability"]
 
     return render_template('teacher/primary_student_entry.html',
                            student=student,
                            class_name=class_name,
                            subjects=subjects,
+                           psychomotor_skills=psychomotor_skills,
                            term=term,
                            session=session_val)
