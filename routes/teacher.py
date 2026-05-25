@@ -71,42 +71,44 @@ def logout():
 @teacher_required
 def dashboard():
     teacher_email = sesh['teacher_email']
-    session_val = sesh['teacher_session']
-    term = sesh['teacher_term']
+    session_val = sesh.get('teacher_session')
+    term = sesh.get('teacher_term')
 
-    teacher = mongo.teachers.find_one({
-        'email': teacher_email,
+    # Class Teacher Assignments
+    class_assignments = list(mongo.class_assignments.find({
+        'teacher_email': teacher_email,
         'session': session_val,
         'term': term
-    })
+    }))
+    class_teacher_of = [a['class'] for a in class_assignments]
 
-    if not teacher:
-        flash('Teacher profile not found for current term.', 'error')
-        return redirect(url_for('teacher.logout'))
-
-    # Subject assignments
+    # Subject Assignments
     subject_assignments = list(mongo.subject_assignments.find({
         'teacher_email': teacher_email,
         'session': session_val,
         'term': term
     }))
 
-    # Class teacher assignments - Support MULTIPLE classes
-    class_assignments = list(mongo.class_assignments.find({
-        'teacher_email': teacher_email,
-        'session': session_val,
-        'term': term
-    }))
+    # Improved Primary School Detection
+    primary_keywords = ['KG', 'NURSERY', 'PRIMARY', 'PRY']
+    primary_classes = [cls for cls in class_teacher_of 
+                      if any(keyword in cls.upper() for keyword in primary_keywords)]
 
-    class_teacher_of = [ca['class'] for ca in class_assignments]  # List of classes
+    # A teacher is primary only if they have primary classes AND no subject assignments
+    is_primary_teacher = len(primary_classes) > 0 and len(subject_assignments) == 0
 
-    return render_template(
-        'teacher/dashboard.html',
-        teacher=teacher,
-        assigned_subjects_count=len(subject_assignments),
-        assigned_subjects=subject_assignments,
-        class_teacher_of=class_teacher_of   # Now a list
-    )
+    return render_template('teacher/dashboard.html',
+                           teacher={
+                               'name': sesh.get('teacher_name', 'Teacher'),
+                               'term': term,
+                               'session': session_val
+                           },
+                           class_teacher_of=class_teacher_of,
+                           assigned_subjects=subject_assignments,
+                           is_primary_teacher=is_primary_teacher,
+                           primary_classes=primary_classes)
+    
+    
 # ==================== UPLOAD RESULT ====================
 # New Form for Scores (per student, but we'll use dynamic in template)
 class ScoreForm(FlaskForm):
@@ -587,37 +589,41 @@ def save_profile():
     
 # Helper: Update Average & Positions for All Enrolled in Subject
 def update_class_average_and_positions(subject, class_name, session_val, term):
-    enrollment = mongo.subject_enrollments.find_one({
+    # Get all results for this subject/class/term
+    results = list(mongo.results.find({
         'subject': subject,
         'class': class_name,
         'session': session_val,
         'term': term
-    })
+    }))
 
-    if enrollment:
-        enrolled = enrollment['enrolled_students']
-        results = list(mongo.results.find({
-            'admission_number': {'$in': enrolled},
-            'subject': subject,
-            'session': session_val,
-            'term': term
-        }))
+    if not results:
+        return
 
-        totals = [r['total'] for r in results]
-        class_avg = round(sum(totals) / len(totals), 2) if totals else 0
+    # Calculate class average
+    totals = [r.get('total', 0) for r in results]
+    class_avg = round(sum(totals) / len(totals), 2) if totals else 0
 
-        # Sort for positions (descending total)
-        sorted_results = sorted(results, key=lambda r: r['total'], reverse=True)
-        for pos, r in enumerate(sorted_results, 1):
-            mongo.results.update_one(
-                {'_id': r['_id']},
-                {'$set': {
-                    'class_average': class_avg,
-                    'position': pos
-                }}
-            )
+    # Sort for positions (handle ties properly)
+    sorted_results = sorted(results, key=lambda r: r.get('total', 0), reverse=True)
+    
+    current_pos = 1
+    prev_total = None
 
+    for i, result in enumerate(sorted_results):
+        if i > 0 and result.get('total', 0) < prev_total:
+            current_pos = i + 1
+        
+        mongo.results.update_one(
+            {'_id': result['_id']},
+            {'$set': {
+                'position': current_pos,
+                'class_average': class_avg
+            }}
+        )
+        prev_total = result.get('total', 0)
 
+"""
 @teacher_bp.route('/save_subject_scores', methods=['POST'])
 @teacher_required
 def save_subject_scores():
@@ -694,6 +700,92 @@ def save_subject_scores():
     flash('Scores saved successfully with grades, positions, and class average!', 'success')
     return redirect(url_for('teacher.subject_detail', subject=subject, class_name=class_name))
 
+"""
+@teacher_bp.route('/save_subject_scores', methods=['POST'])
+@teacher_required
+def save_subject_scores():
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data received'}), 400
+
+        subject = data.get('subject')
+        class_name = data.get('class')
+        term = data.get('term')
+        session_val = sesh.get('teacher_session')
+        scores_list = data.get('scores', [])  # New format from frontend
+
+        if not all([subject, class_name, term, session_val]):
+            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
+
+        saved_count = 0
+
+        for score_data in scores_list:
+            adm_no = score_data.get('adm_no')
+            ca1 = float(score_data.get('ca1', 0))
+            ca2 = float(score_data.get('ca2', 0))
+            exam = float(score_data.get('exam', 0))
+
+            # Calculate total
+            current_total = ca1 + ca2 + exam
+
+            if term == 'Third':
+                # Get cumulative from previous terms (more reliable)
+                first = mongo.results.find_one({
+                    'admission_number': adm_no,
+                    'subject': subject,
+                    'session': session_val,
+                    'term': 'First'
+                }) or {}
+                second = mongo.results.find_one({
+                    'admission_number': adm_no,
+                    'subject': subject,
+                    'session': session_val,
+                    'term': 'Second'
+                }) or {}
+
+                cum1 = float(first.get('total', 0))
+                cum2 = float(second.get('total', 0))
+                final_total = round((cum1 + cum2 + current_total) / 3, 2)
+            else:
+                final_total = round(current_total, 2)
+
+            grade, remark = get_grade_and_remark(final_total)
+
+            # Upsert result
+            mongo.results.update_one(
+                {
+                    'admission_number': adm_no,
+                    'subject': subject,
+                    'class': class_name,
+                    'session': session_val,
+                    'term': term
+                },
+                {'$set': {
+                    'ca1': ca1,
+                    'ca2': ca2,
+                    'exam': exam,
+                    'total': final_total,
+                    'grade': grade,
+                    'remark': remark,
+                    'date_updated': datetime.utcnow()
+                }},
+                upsert=True
+            )
+            saved_count += 1
+
+        # Update class average and positions
+        update_class_average_and_positions(subject, class_name, session_val, term)
+
+        return jsonify({
+            'success': True,
+            'message': f'Successfully saved scores for {saved_count} student(s)'
+        })
+
+    except Exception as e:
+        print("Save Scores Error:", str(e))
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 # ======================= Broad sheet ===============
 def get_grade_and_remark(total):
     for min_score, max_score, grade, remark in GRADE_SCALE:
@@ -747,4 +839,101 @@ def teacher_broadsheet(class_name):
         subjects=subjects
     )
 
+# The primary school
+@teacher_bp.route('/primary_entry/<class_name>')
+@teacher_required
+def primary_entry(class_name):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
 
+    # Security check
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('You are not authorized for this class.', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Get students
+    students = list(mongo.term_enrollments.find({
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }).sort('name', 1))
+
+    # Get subjects safely
+    subjects = sorted(list(mongo.results.distinct('subject', {
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })))
+
+    # Fallback subjects if none found yet
+    if not subjects:
+        subjects = ["Mathematics", "English", "Basic Science", "Social Studies", 
+                   " Civic Education", "Home Economics", "Physical Education", 
+                   "Art & Craft", "Computer Studies", "Christian Religious Knowledge"]
+
+    return render_template('teacher/primary_entry.html',
+                           class_name=class_name,
+                           students=students,
+                           subjects=subjects,           # All possible subjects
+                           selected_subjects=subjects,  # Initially all selected
+                           term=term,
+                           session=session_val)
+
+    
+@teacher_bp.route('/save_primary_scores', methods=['POST'])
+@teacher_required
+def save_primary_scores():
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data received'}), 400
+
+    adm_no = data.get('admission_number')
+    class_name = data.get('class_name')
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+    scores = data.get('scores', {})
+
+    if not adm_no or not class_name:
+        return jsonify({'success': False, 'error': 'Missing student or class'}), 400
+
+    saved_count = 0
+    for subject, marks in scores.items():
+        ca1 = float(marks.get('ca1', 0))
+        ca2 = float(marks.get('ca2', 0))
+        exam = float(marks.get('exam', 0))
+        total = ca1 + ca2 + exam
+
+        if term == 'Third':
+            # You can enhance this later with cumulative logic
+            total = round(total / 3, 2)
+
+        mongo.results.update_one(
+            {
+                'admission_number': adm_no,
+                'subject': subject,
+                'session': session_val,
+                'term': term,
+                'class': class_name
+            },
+            {'$set': {
+                'ca1': ca1,
+                'ca2': ca2,
+                'exam': exam,
+                'total': total,
+                'date_updated': datetime.utcnow()
+            }},
+            upsert=True
+        )
+        saved_count += 1
+
+    return jsonify({
+        'success': True,
+        'message': f'Saved {saved_count} subjects for student {adm_no}'
+    })
