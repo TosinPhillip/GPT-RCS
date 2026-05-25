@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <!-- Header -->
+        <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-4xl font-bold">{{ student.name }}</h1>
+                    <p class="text-xl opacity-90">{{ student.admission_number }} • {{ class_name }}</p>
+                </div>
+                <a href="{{ url_for('teacher.primary_class_students', class_name=class_name) }}" 
+                   class="px-6 py-3 bg-white/20 hover:bg-white/30 text-white rounded-2xl transition">
+                    ← Back to Students
+                </a>
+            </div>
+        </div>
+
+        <div class="p-10">
+            <form id="result-form" onsubmit="saveStudentResults(event)">
+                <!-- Subjects -->
+                <div class="mb-12">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-8">Academic Scores</h2>
+                    <div class="space-y-10">
+                        {% for subject in subjects %}
+                        <div class="border border-gray-100 rounded-3xl p-8 hover:shadow-md transition">
+                            <h3 class="text-xl font-semibold mb-6 text-gray-700">{{ subject }}</h3>
+                            <div class="grid grid-cols-3 gap-8">
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-2">CA1</label>
+                                    <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5"
+                                           class="w-full border rounded-2xl px-6 py-4 text-center text-2xl focus:ring-2 focus:ring-indigo-300">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-2">CA2</label>
+                                    <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5"
+                                           class="w-full border rounded-2xl px-6 py-4 text-center text-2xl focus:ring-2 focus:ring-indigo-300">
+                                </div>
+                                <div>
+                                    <label class="block text-sm text-gray-500 mb-2">Exam</label>
+                                    <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5"
+                                           class="w-full border rounded-2xl px-6 py-4 text-center text-2xl focus:ring-2 focus:ring-indigo-300">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Psychomotor Ratings -->
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-8">Psychomotor & Affective Domain</h2>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        {% for skill in psychomotor_skills %}
+                        <div class="bg-gray-50 rounded-2xl p-6">
+                            <label class="block text-sm font-medium text-gray-700 mb-3">{{ skill }}</label>
+                            <select name="psycho_{{ skill }}" class="w-full border rounded-2xl px-5 py-4 text-center">
+                                <option value="">Rate (1-5)</option>
+                                {% for i in range(1,6) %}
+                                <option value="{{ i }}">{{ i }} - {{ ['Poor','Fair','Good','Very Good','Excellent'][i-1] }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="mt-16 text-center">
+                    <button type="submit" 
+                            class="px-16 py-6 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-3xl shadow-lg transition">
+                        Save All Results
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function saveStudentResults(e) {
+        e.preventDefault();
+
+        const formData = new FormData(e.target);
+        const scores = {};
+        const psychomotor = {};
+
+        // Collect scores
+        {% for subject in subjects %}
+        scores["{{ subject }}"] = {
+            ca1: parseFloat(formData.get("ca1_{{ subject }}")) || 0,
+            ca2: parseFloat(formData.get("ca2_{{ subject }}")) || 0,
+            exam: parseFloat(formData.get("exam_{{ subject }}")) || 0
+        };
+        {% endfor %}
+
+        // Collect psychomotor
+        {% for skill in psychomotor_skills %}
+        psychomotor["{{ skill }}"] = parseInt(formData.get("psycho_{{ skill }}")) || null;
+        {% endfor %}
+
+        const payload = {
+            admission_number: "{{ student.admission_number }}",
+            class_name: "{{ class_name }}",
+            scores: scores,
+            psychomotor: psychomotor
+        };
+
+        try {
+            const res = await fetch('/teacher/save_primary_scores', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (data.success) {
+                alert("✅ All results saved successfully!");
+            } else {
+                alert("Failed to save: " + (data.error || ''));
+            }
+        } catch (err) {
+            alert("Network error. Please try again.");
+        }
+    }
+</script>
+{% endblock %}

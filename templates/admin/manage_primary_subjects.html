@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto mt-12 px-4">
+    <h1 class="text-3xl font-bold mb-10">Manage Primary School Subjects</h1>
+
+    {% for class_name in primary_classes %}
+    <div class="bg-white rounded-3xl shadow-xl p-10 mb-10">
+        <h2 class="text-2xl font-bold mb-6">{{ class_name }}</h2>
+        
+        <form method="POST">
+            <input type="hidden" name="class_name" value="{{ class_name }}">
+            
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {% for subject in all_subjects %}
+                <label class="flex items-center gap-3 p-4 bg-gray-50 rounded-2xl hover:bg-gray-100 cursor-pointer">
+                    <input type="checkbox" name="subjects" value="{{ subject }}"
+                           {% if subject in current_settings[class_name] %}checked{% endif %}>
+                    <span>{{ subject }}</span>
+                </label>
+                {% endfor %}
+            </div>
+
+            <button type="submit" class="mt-8 px-10 py-4 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 transition">
+                Save Subjects for {{ class_name }}
+            </button>
+        </form>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

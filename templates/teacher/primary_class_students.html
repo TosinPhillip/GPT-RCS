@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="max-w-5xl mx-auto mt-12 px-4">
+    <div class="bg-white rounded-3xl shadow-xl p-10">
+        <div class="flex justify-between items-center mb-10">
+            <div>
+                <h1 class="text-4xl font-bold text-gray-800">{{ class_name }}</h1>
+                <p class="text-gray-600">Select a student to enter results</p>
+            </div>
+            <a href="{{ url_for('teacher.teacher_broadsheet', class_name=class_name) }}" 
+               class="px-8 py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl transition">
+                📊 Generate Broadsheet
+            </a>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for student in students %}
+                <a href="{{ url_for('teacher.primary_student_entry', class_name=class_name, adm_no=student.admission_number) }}"
+                   class="block bg-white border border-gray-200 hover:border-indigo-300 rounded-3xl p-8 transition">
+                    <div class="text-center">
+                        <div class="text-5xl mb-4">👤</div>
+                        <h3 class="font-bold text-xl">{{ student.name }}</h3>
+                        <p class="text-gray-500 text-sm mt-1">{{ student.admission_number }}</p>
+                    </div>
+                </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

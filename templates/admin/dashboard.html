@@ -105,16 +105,26 @@
         </a>
         
         <!-- Generate broadsheet-->
-                <a href="{{ url_for('admin.broadsheet') }}" class="block bg-white p-8 rounded-xl shadow hover:shadow-xl transition">
-        <div class="text-purple-600 mb-4">
+                    <a href="{{ url_for('admin.broadsheet') }}" class="block bg-white p-8 rounded-xl shadow hover:shadow-xl transition">
+            <div class="text-purple-600 mb-4">
+                <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                </svg>
+            </div>
+            <h3 class="text-xl font-semibold text-gray-800">Generate broadsheet</h3>
+            <p class="text-gray-600 mt-2">Create the broadsheet for each class</p>
+            </a>
+        </div>
+        <a href="{{ url_for('admin.manage_primary_subjects') }}" 
+       class="block bg-white p-8 rounded-3xl shadow hover:shadow-xl transition">
+        <div class="text-violet-600 mb-4">
             <svg class="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2" />
             </svg>
         </div>
-        <h3 class="text-xl font-semibold text-gray-800">Generate broadsheet</h3>
-        <p class="text-gray-600 mt-2">Create the broadsheet for each class</p>
-        </a>
-    </div>
+        <h3 class="text-xl font-semibold">Manage Primary Subjects</h3>
+        <p class="text-gray-600 mt-2">Define subjects for KG, Nursery & Primary classes</p>
+    </a>
     
 
     

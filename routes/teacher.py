@@ -74,39 +74,30 @@ def dashboard():
     session_val = sesh.get('teacher_session')
     term = sesh.get('teacher_term')
 
-    # Class Teacher Assignments
-    class_assignments = list(mongo.class_assignments.find({
+    teacher_doc = mongo.teachers.find_one({
+        'email': teacher_email,
+        'session': session_val,
+        'term': term
+    })
+    is_primary_teacher = teacher_doc.get('is_primary', False) if teacher_doc else False
+
+    class_teacher_of = [a['class'] for a in mongo.class_assignments.find({
+        'teacher_email': teacher_email,
+        'session': session_val,
+        'term': term
+    })]
+
+    assigned_subjects = list(mongo.subject_assignments.find({
         'teacher_email': teacher_email,
         'session': session_val,
         'term': term
     }))
-    class_teacher_of = [a['class'] for a in class_assignments]
-
-    # Subject Assignments
-    subject_assignments = list(mongo.subject_assignments.find({
-        'teacher_email': teacher_email,
-        'session': session_val,
-        'term': term
-    }))
-
-    # Improved Primary School Detection
-    primary_keywords = ['KG', 'NURSERY', 'PRIMARY', 'PRY']
-    primary_classes = [cls for cls in class_teacher_of 
-                      if any(keyword in cls.upper() for keyword in primary_keywords)]
-
-    # A teacher is primary only if they have primary classes AND no subject assignments
-    is_primary_teacher = len(primary_classes) > 0 and len(subject_assignments) == 0
 
     return render_template('teacher/dashboard.html',
-                           teacher={
-                               'name': sesh.get('teacher_name', 'Teacher'),
-                               'term': term,
-                               'session': session_val
-                           },
+                           teacher={'name': sesh.get('teacher_name'), 'term': term, 'session': session_val},
                            class_teacher_of=class_teacher_of,
-                           assigned_subjects=subject_assignments,
-                           is_primary_teacher=is_primary_teacher,
-                           primary_classes=primary_classes)
+                           assigned_subjects=assigned_subjects,
+                           is_primary_teacher=is_primary_teacher)
     
     
 # ==================== UPLOAD RESULT ====================
@@ -891,37 +882,22 @@ def primary_entry(class_name):
 @teacher_required
 def save_primary_scores():
     data = request.get_json()
-    if not data:
-        return jsonify({'success': False, 'error': 'No data received'}), 400
-
     adm_no = data.get('admission_number')
     class_name = data.get('class_name')
+    scores = data.get('scores', {})
+    psychomotor = data.get('psychomotor', {})
+
     session_val = sesh['teacher_session']
     term = sesh['teacher_term']
-    scores = data.get('scores', {})
 
-    if not adm_no or not class_name:
-        return jsonify({'success': False, 'error': 'Missing student or class'}), 400
-
-    saved_count = 0
     for subject, marks in scores.items():
         ca1 = float(marks.get('ca1', 0))
         ca2 = float(marks.get('ca2', 0))
         exam = float(marks.get('exam', 0))
         total = ca1 + ca2 + exam
 
-        if term == 'Third':
-            # You can enhance this later with cumulative logic
-            total = round(total / 3, 2)
-
         mongo.results.update_one(
-            {
-                'admission_number': adm_no,
-                'subject': subject,
-                'session': session_val,
-                'term': term,
-                'class': class_name
-            },
+            {'admission_number': adm_no, 'subject': subject, 'session': session_val, 'term': term},
             {'$set': {
                 'ca1': ca1,
                 'ca2': ca2,
@@ -931,9 +907,82 @@ def save_primary_scores():
             }},
             upsert=True
         )
-        saved_count += 1
 
-    return jsonify({
-        'success': True,
-        'message': f'Saved {saved_count} subjects for student {adm_no}'
+    # Save Psychomotor
+    if psychomotor:
+        mongo.student_term_profiles.update_one(
+            {'admission_number': adm_no, 'session': session_val, 'term': term},
+            {'$set': {
+                'psychomotor': psychomotor,
+                'class': class_name,
+                'date_updated': datetime.utcnow()
+            }},
+            upsert=True
+        )
+
+    return jsonify({'success': True, 'message': 'Results saved successfully'})
+
+
+
+
+# ==================== PRIMARY SCHOOL TEACHER ROUTES ====================
+
+@teacher_bp.route('/primary_class_students/<class_name>')
+@teacher_required
+def primary_class_students(class_name):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    # Security check
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': class_name,
+        'session': session_val,
+        'term': term
     })
+    if not assignment:
+        flash('You are not the class teacher for this class.', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    students = list(mongo.term_enrollments.find({
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }).sort('name', 1))
+
+    return render_template('teacher/primary_class_students.html',
+                           class_name=class_name,
+                           students=students)
+
+
+@teacher_bp.route('/primary_student_entry/<class_name>/<adm_no>')
+@teacher_required
+def primary_student_entry(class_name, adm_no):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    # Security check
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('Access denied.', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    student = mongo.term_enrollments.find_one({'admission_number': adm_no})
+
+    # Get subjects for this primary class
+    class_subjects_doc = mongo.primary_class_subjects.find_one({'class_name': class_name})
+    subjects = class_subjects_doc['subjects'] if class_subjects_doc else ["Mathematics", "English", "Basic Science"]
+
+    return render_template('teacher/primary_student_entry.html',
+                           student=student,
+                           class_name=class_name,
+                           subjects=subjects,
+                           term=term,
+                           session=session_val)

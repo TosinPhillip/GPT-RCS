@@ -494,56 +494,52 @@ def register_students():
     # GET — show registration page
     return render_template('admin/register_students.html')
 
-
+# Create teacher profile
 @admin_bp.route('/teachers/create', methods=['GET', 'POST'])
 @admin_required
 def create_teacher():
+    # Get current active session and term
+    current_context = mongo.current_context.find_one({'active': True}) or {}
+    current_session = current_context.get('session_name') or "2025/2026"
+    current_term = current_context.get('term') or "First"
+
     if request.method == 'POST':
         name = request.form['name'].strip().title()
         email = request.form['email'].strip().lower()
         phone = request.form['phone'].strip()
-        session_val = request.form['session']
-        term = request.form['term']
+        is_primary = request.form.get('is_primary') == 'on'
 
-        # Validation
-        if not all([name, email, phone, session_val, term]):
-            flash('All fields are required', 'danger')
+        if not all([name, email, phone]):
+            flash('Name, Email and Phone are required', 'danger')
             return redirect(url_for('admin.create_teacher'))
 
-        # Check if teacher already exists for this session + term
         existing = mongo.teachers.find_one({
             'email': email,
-            'session': session_val,
-            'term': term
+            'session': current_session,
+            'term': current_term
         })
         if existing:
-            flash(f'Teacher {name} already has a profile for {term} Term, {session_val}', 'danger')
+            flash(f'Teacher with this email already exists for this term.', 'danger')
             return redirect(url_for('admin.create_teacher'))
 
-        # Insert new teacher profile
         teacher_data = {
             'name': name,
             'email': email,
             'phone': phone,
-            'session': session_val,
-            'term': term,
-            'date_created': datetime.utcnow(),
-            'created_by': sesh.get('admin_name', 'admin')  # if you track admin
+            'session': current_session,
+            'term': current_term,
+            'is_primary': is_primary,
+            'date_created': datetime.utcnow()
         }
 
         mongo.teachers.insert_one(teacher_data)
-        flash(f'Teacher "{name}" successfully created for {term} Term!', 'success')
-
+        flash(f'Teacher "{name}" created successfully for {current_term} Term, {current_session}!', 'success')
         return redirect(url_for('admin.create_teacher'))
 
-    # GET — show form
-    # You can pre-fill current session/term or list available ones
-    current_session = get_current_context()['session_name']  # Or make dynamic
-    terms = ['First', 'Second', 'Third']
-
+    # GET request
     return render_template('admin/create_teacher.html',
                            current_session=current_session,
-                           terms=terms)
+                           current_term=current_term)
 
 
 @admin_bp.route('/teachers/assign', methods=['GET', 'POST'])
@@ -953,3 +949,34 @@ def broadsheet():
         assessments=assessments,
         current_session=current_session
     )
+
+
+# Admin can select subjects for primary schools here
+@admin_bp.route('/manage_primary_subjects', methods=['GET', 'POST'])
+@admin_required
+def manage_primary_subjects():
+    if request.method == 'POST':
+        class_name = request.form.get('class_name')
+        selected_subjects = request.form.getlist('subjects')
+
+        mongo.primary_class_subjects.update_one(
+            {'class_name': class_name},
+            {'$set': {'subjects': selected_subjects, 'updated_at': datetime.utcnow()}},
+            upsert=True
+        )
+        flash(f'Subjects updated for {class_name}', 'success')
+        return redirect(url_for('admin.manage_primary_subjects'))
+
+    primary_classes = ["KG 1", "KG 2", "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4"]
+    all_subjects = sorted(mongo.results.distinct('subject'))
+
+    # Get current subjects per class
+    current_settings = {}
+    for cls in primary_classes:
+        doc = mongo.primary_class_subjects.find_one({'class_name': cls})
+        current_settings[cls] = doc['subjects'] if doc else []
+
+    return render_template('admin/manage_primary_subjects.html',
+                           primary_classes=primary_classes,
+                           all_subjects=all_subjects,
+                           current_settings=current_settings)
