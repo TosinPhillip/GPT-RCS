@@ -968,7 +968,7 @@ def manage_primary_subjects():
         return redirect(url_for('admin.manage_primary_subjects'))
 
     primary_classes = ["KG 1", "KG 2", "Nursery 1", "Nursery 2", "Primary 1", "Primary 2", "Primary 3", "Primary 4"]
-    all_subjects = sorted(mongo.results.distinct('subject'))
+    all_subjects = sorted([doc['name'] for doc in mongo.subjects.find().sort('name', 1)])
 
     # Get current subjects per class
     current_settings = {}

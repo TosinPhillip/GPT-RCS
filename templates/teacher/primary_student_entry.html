@@ -2,7 +2,6 @@
 {% block content %}
 <div class="max-w-5xl mx-auto mt-12 px-4">
     <div class="bg-white rounded-3xl shadow-2xl">
-        <!-- Header -->
         <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10">
             <div class="flex justify-between items-center">
                 <div>
@@ -11,33 +10,32 @@
                 </div>
                 <a href="{{ url_for('teacher.primary_class_students', class_name=class_name) }}" 
                    class="px-8 py-4 bg-white/20 hover:bg-white/30 rounded-2xl transition">
-                    ← Back to Class
+                    ← Back to Students
                 </a>
             </div>
         </div>
 
         <div class="p-10">
             <form id="result-form" onsubmit="saveResults(event)">
-                <!-- Subjects -->
-                <h2 class="text-2xl font-bold mb-8 text-gray-800">Academic Performance</h2>
+                <h2 class="text-2xl font-bold mb-8">Academic Scores</h2>
                 <div class="space-y-10">
                     {% for subject in subjects %}
-                    <div class="border border-gray-100 rounded-3xl p-8">
+                    <div class="border rounded-3xl p-8">
                         <h3 class="font-semibold text-xl mb-6">{{ subject }}</h3>
                         <div class="grid grid-cols-3 gap-8">
                             <div>
                                 <label class="block text-sm text-gray-500 mb-2">CA1</label>
-                                <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5"
+                                <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5" 
                                        class="w-full border rounded-2xl px-6 py-5 text-center text-2xl">
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-500 mb-2">CA2</label>
-                                <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5"
+                                <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5" 
                                        class="w-full border rounded-2xl px-6 py-5 text-center text-2xl">
                             </div>
                             <div>
                                 <label class="block text-sm text-gray-500 mb-2">Exam</label>
-                                <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5"
+                                <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5" 
                                        class="w-full border rounded-2xl px-6 py-5 text-center text-2xl">
                             </div>
                         </div>
@@ -46,13 +44,13 @@
                 </div>
 
                 <!-- Psychomotor -->
-                <h2 class="text-2xl font-bold mt-16 mb-8 text-gray-800">Psychomotor Ratings</h2>
+                <h2 class="text-2xl font-bold mt-16 mb-8">Psychomotor Ratings</h2>
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
                     {% for skill in psychomotor_skills %}
                     <div class="bg-gray-50 rounded-2xl p-6">
                         <label class="block text-sm font-medium mb-3">{{ skill }}</label>
                         <select name="psycho_{{ skill }}" class="w-full border rounded-2xl px-5 py-4">
-                            <option value="">Select Rating</option>
+                            <option value="">Select</option>
                             <option value="5">5 - Excellent</option>
                             <option value="4">4 - Very Good</option>
                             <option value="3">3 - Good</option>
@@ -64,8 +62,7 @@
                 </div>
 
                 <div class="text-center mt-16">
-                    <button type="submit" 
-                            class="px-20 py-6 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-3xl shadow-xl transition">
+                    <button type="submit" class="px-20 py-6 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-3xl shadow-xl">
                         Save All Results
                     </button>
                 </div>
@@ -109,9 +106,9 @@
 
             const data = await res.json();
             if (data.success) {
-                alert("✅ Results saved successfully!");
+                alert("✅ Results saved successfully for {{ student.name }}!");
             } else {
-                alert("Failed to save results");
+                alert("Failed to save");
             }
         } catch (err) {
             alert("Network error. Please try again.");
