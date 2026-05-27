@@ -1,77 +1,102 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-6xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div class="bg-gradient-to-r from-teal-600 to-cyan-700 text-white p-10 text-center">
-            <h1 class="text-4xl font-bold mb-4">{{ student.name }}</h1>
-            <p class="text-xl opacity-90">{{ student.admission_number }} • {{ class_name }}</p>
-            <p class="text-xl mt-2 opacity-90">{{ term }} Term, {{ session }}</p>
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+        <!-- Student Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight mb-2">
+                {{ student.name }}
+            </h1>
+            <p class="text-amber-100 text-lg sm:text-xl">
+                {{ student.admission_number }} • {{ class_name }}
+            </p>
+            <p class="text-amber-100 mt-1">
+                {{ term }} Term, {{ session }}
+            </p>
         </div>
 
-        <div class="p-10">
-            <!-- Results Summary Table -->
-            <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Subject Results</h2>
-            <div class="overflow-x-auto mb-12">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-teal-100">
-                        <tr>
-                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-800">Subject</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">CA1</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">CA2</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">Exam</th>
-                            {% if term == 'Third' %}
-                                <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">Cum 1st</th>
-                                <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">Cum 2nd</th>
-                            {% endif %}
-                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">Total</th>
-                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-800">Position</th>
-                        </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                        {% for res in results %}
-                            <tr class="hover:bg-teal-50 transition">
-                                <td class="px-6 py-4 font-medium">{{ res.subject }}</td>
-                                <td class="px-6 py-4 text-center">{{ res.ca1 or 0 }}</td>
-                                <td class="px-6 py-4 text-center">{{ res.ca2 or 0 }}</td>
-                                <td class="px-6 py-4 text-center">{{ res.exam or 0 }}</td>
+        <div class="p-6 sm:p-10 space-y-12">
+
+            <!-- Results Summary -->
+            <div>
+                <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 heading-font text-center">
+                    Subject Results
+                </h2>
+                
+                <div class="overflow-x-auto rounded-3xl border border-gray-100">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-5 text-left font-medium text-gray-700">Subject</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">CA1</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">CA2</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">Exam</th>
                                 {% if term == 'Third' %}
-                                    <td class="px-6 py-4 text-center">{{ res.cumulative1 or 0 }}</td>
-                                    <td class="px-6 py-4 text-center">{{ res.cumulative2 or 0 }}</td>
+                                    <th class="px-6 py-5 text-center font-medium text-gray-700 bg-amber-50">1st Term</th>
+                                    <th class="px-6 py-5 text-center font-medium text-gray-700 bg-amber-50">2nd Term</th>
                                 {% endif %}
-                                <td class="px-6 py-4 text-center font-bold text-teal-700">{{ res.total or 0 }}</td>
-                                <td class="px-6 py-4 text-center font-bold text-purple-700">
+                                <th class="px-6 py-5 text-center font-bold text-amber-700">Total</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">Position</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-100">
+                            {% for res in results %}
+                            <tr class="hover:bg-amber-50 transition">
+                                <td class="px-6 py-5 font-medium">{{ res.subject }}</td>
+                                <td class="px-6 py-5 text-center">{{ res.ca1 or 0 }}</td>
+                                <td class="px-6 py-5 text-center">{{ res.ca2 or 0 }}</td>
+                                <td class="px-6 py-5 text-center">{{ res.exam or 0 }}</td>
+                                {% if term == 'Third' %}
+                                    <td class="px-6 py-5 text-center bg-amber-50">{{ res.cumulative1 or 0 }}</td>
+                                    <td class="px-6 py-5 text-center bg-amber-50">{{ res.cumulative2 or 0 }}</td>
+                                {% endif %}
+                                <td class="px-6 py-5 text-center font-bold text-amber-700">{{ res.total or 0 }}</td>
+                                <td class="px-6 py-5 text-center font-bold text-gray-700">
                                     {{ res.position or '—' }}
                                 </td>
                             </tr>
-                        {% endfor %}
-                        {% if not results %}
+                            {% endfor %}
+                            {% if not results %}
                             <tr>
-                                <td colspan="{% if term == 'Third' %}8{% else %}6{% endif %}" class="px-6 py-8 text-center text-gray-500">
-                                    No results recorded yet for this term
+                                <td colspan="{% if term == 'Third' %}8{% else %}6{% endif %}" 
+                                    class="px-6 py-16 text-center text-gray-500">
+                                    No results recorded yet for this term.
                                 </td>
                             </tr>
-                        {% endif %}
-                    </tbody>
-                </table>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <!-- Class Teacher Comment & Psychomotor -->
-            <form method="POST" action="{{ url_for('teacher.save_profile') }}" class="space-y-10">
+            <form method="POST" action="{{ url_for('teacher.save_profile') }}" class="space-y-12">
                 <input type="hidden" name="adm_no" value="{{ student.admission_number }}">
 
+                <!-- Class Teacher Comment -->
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-800 mb-6">Class Teacher Comment</h3>
-                    <textarea name="comment" rows="6" class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-teal-300">{{ profile.class_teacher_comment or '' }}</textarea>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-6 heading-font">Class Teacher Comment</h3>
+                    <textarea name="comment" rows="6" 
+                              class="w-full px-6 py-5 border border-gray-200 rounded-3xl focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100 transition resize-y">
+                        {{ profile.class_teacher_comment or '' }}
+                    </textarea>
                 </div>
 
+                <!-- Psychomotor Skills -->
                 <div>
-                    <h3 class="text-2xl font-bold text-gray-800 mb-6">Psychomotor Skills Rating (1-5)</h3>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                    <h3 class="text-2xl font-bold text-gray-800 mb-8 heading-font">Psychomotor Skills Rating (1-5)</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {% for field in psychomotor_fields %}
                             {% set rating = profile.psychomotor.get(field, 0) if profile.psychomotor else 0 %}
-                            <div>
-                                <label class="block text-gray-700 capitalize mb-2">{{ field.replace('_', ' ') }}</label>
-                                <select name="{{ field }}" class="w-full px-4 py-3 border rounded-xl focus:ring-teal-300">
+                            <div class="bg-white border border-gray-100 rounded-3xl p-6">
+                                <label class="block text-gray-700 capitalize mb-4 font-medium">
+                                    {{ field.replace('_', ' ') }}
+                                </label>
+                                <select name="{{ field }}" 
+                                        class="w-full px-6 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 transition text-base">
                                     {% for i in range(0, 6) %}
                                         <option value="{{ i }}" {% if i == rating %}selected{% endif %}>{{ i }}</option>
                                     {% endfor %}
@@ -81,13 +106,17 @@
                     </div>
                 </div>
 
-                <div class="text-center">
-                    <button type="submit" class="px-12 py-5 bg-teal-700 hover:bg-teal-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
-                        Save Comment & Ratings
+                <!-- Submit -->
+                <div class="text-center pt-6">
+                    <button type="submit" 
+                            class="w-full sm:w-auto px-12 py-5 bg-amber-600 hover:bg-amber-700 text-white text-lg font-semibold rounded-2xl shadow-lg transition transform active:scale-[0.98]">
+                        Save Comment &amp; Ratings
                     </button>
                 </div>
             </form>
+
         </div>
     </div>
 </div>
+
 {% endblock %}

@@ -1,72 +1,95 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-5xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-3xl shadow-2xl">
-        <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10">
-            <div class="flex justify-between items-center">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+        <!-- Student Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                 <div>
-                    <h1 class="text-4xl font-bold">{{ student.name }}</h1>
-                    <p class="text-xl opacity-90">{{ student.admission_number }} • {{ class_name }}</p>
+                    <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
+                        {{ student.name }}
+                    </h1>
+                    <p class="text-amber-100 text-lg sm:text-xl mt-1">
+                        {{ student.admission_number }} • {{ class_name }}
+                    </p>
                 </div>
-                <a href="{{ url_for('teacher.primary_class_students', class_name=class_name) }}" 
-                   class="px-8 py-4 bg-white/20 hover:bg-white/30 rounded-2xl transition">
-                    ← Back to Students
+                <a href="{{ url_for('teacher.primary_class_students', class_name=class_name) }}"
+                   class="px-8 py-4 bg-white/20 hover:bg-white/30 text-white rounded-2xl transition flex items-center gap-2 text-sm font-medium">
+                    ← Back to Class
                 </a>
             </div>
         </div>
 
-        <div class="p-10">
-            <form id="result-form" onsubmit="saveResults(event)">
-                <h2 class="text-2xl font-bold mb-8">Academic Scores</h2>
-                <div class="space-y-10">
-                    {% for subject in subjects %}
-                    <div class="border rounded-3xl p-8">
-                        <h3 class="font-semibold text-xl mb-6">{{ subject }}</h3>
-                        <div class="grid grid-cols-3 gap-8">
-                            <div>
-                                <label class="block text-sm text-gray-500 mb-2">CA1</label>
-                                <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5" 
-                                       class="w-full border rounded-2xl px-6 py-5 text-center text-2xl">
-                            </div>
-                            <div>
-                                <label class="block text-sm text-gray-500 mb-2">CA2</label>
-                                <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5" 
-                                       class="w-full border rounded-2xl px-6 py-5 text-center text-2xl">
-                            </div>
-                            <div>
-                                <label class="block text-sm text-gray-500 mb-2">Exam</label>
-                                <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5" 
-                                       class="w-full border rounded-2xl px-6 py-5 text-center text-2xl">
+        <div class="p-6 sm:p-10">
+
+            <form id="result-form" onsubmit="saveResults(event)" class="space-y-14">
+
+                <!-- Academic Scores -->
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 heading-font">Academic Scores</h2>
+                    
+                    <div class="space-y-8">
+                        {% for subject in subjects %}
+                        <div class="bg-white border border-gray-100 rounded-3xl p-6 sm:p-8 hover:border-amber-200 transition">
+                            <h3 class="font-semibold text-xl mb-6 text-gray-800">{{ subject }}</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-600 mb-3">CA1 (15)</label>
+                                    <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5"
+                                           class="w-full border border-gray-200 rounded-2xl px-6 py-5 text-center text-2xl focus:border-amber-500 focus:ring-amber-100 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-600 mb-3">CA2 (15)</label>
+                                    <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5"
+                                           class="w-full border border-gray-200 rounded-2xl px-6 py-5 text-center text-2xl focus:border-amber-500 focus:ring-amber-100 transition">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-600 mb-3">Exam (70)</label>
+                                    <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5"
+                                           class="w-full border border-gray-200 rounded-2xl px-6 py-5 text-center text-2xl focus:border-amber-500 focus:ring-amber-100 transition">
+                                </div>
                             </div>
                         </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
 
-                <!-- Psychomotor -->
-                <h2 class="text-2xl font-bold mt-16 mb-8">Psychomotor Ratings</h2>
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-                    {% for skill in psychomotor_skills %}
-                    <div class="bg-gray-50 rounded-2xl p-6">
-                        <label class="block text-sm font-medium mb-3">{{ skill }}</label>
-                        <select name="psycho_{{ skill }}" class="w-full border rounded-2xl px-5 py-4">
-                            <option value="">Select</option>
-                            <option value="5">5 - Excellent</option>
-                            <option value="4">4 - Very Good</option>
-                            <option value="3">3 - Good</option>
-                            <option value="2">2 - Fair</option>
-                            <option value="1">1 - Poor</option>
-                        </select>
+                <!-- Psychomotor Skills -->
+                <div>
+                    <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 heading-font">Psychomotor Ratings</h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {% for skill in psychomotor_skills %}
+                        <div class="bg-zinc-50 rounded-3xl p-6 border border-gray-100 hover:border-amber-200 transition">
+                            <label class="block text-gray-700 font-medium mb-4 capitalize">
+                                {{ skill.replace('_', ' ') }}
+                            </label>
+                            <select name="psycho_{{ skill }}" 
+                                    class="w-full px-6 py-4 border border-gray-200 rounded-2xl focus:border-amber-500 focus:ring-amber-100 transition text-base">
+                                <option value="">Select Rating</option>
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Very Good</option>
+                                <option value="3">3 - Good</option>
+                                <option value="2">2 - Fair</option>
+                                <option value="1">1 - Poor</option>
+                            </select>
+                        </div>
+                        {% endfor %}
                     </div>
-                    {% endfor %}
                 </div>
 
-                <div class="text-center mt-16">
-                    <button type="submit" class="px-20 py-6 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-3xl shadow-xl">
-                        Save All Results
+                <!-- Submit Button -->
+                <div class="text-center pt-6">
+                    <button type="submit"
+                            class="w-full sm:w-auto px-16 py-6 bg-amber-600 hover:bg-amber-700 text-white text-xl font-semibold rounded-3xl shadow-lg transition transform active:scale-[0.98]">
+                        💾 Save All Results
                     </button>
                 </div>
+
             </form>
+
         </div>
     </div>
 </div>
@@ -103,16 +126,17 @@
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
-
             const data = await res.json();
+            
             if (data.success) {
                 alert("✅ Results saved successfully for {{ student.name }}!");
             } else {
-                alert("Failed to save");
+                alert("Failed to save results");
             }
         } catch (err) {
             alert("Network error. Please try again.");
         }
     }
 </script>
+
 {% endblock %}

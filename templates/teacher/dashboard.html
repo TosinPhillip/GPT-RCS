@@ -1,26 +1,36 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-5xl mx-auto mt-12 px-4">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
     <!-- Welcome Header -->
-    <div class="bg-gradient-to-r from-teal-600 to-cyan-700 text-white rounded-3xl shadow-2xl p-10 text-center mb-12">
-        <h1 class="text-4xl font-bold mb-4">Welcome back, {{ teacher.name }}!</h1>
-        <p class="text-xl opacity-90">{{ teacher.term }} Term, {{ teacher.session }}</p>
+    <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white rounded-3xl shadow-xl p-8 sm:p-12 text-center mb-12">
+        <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight mb-3">
+            Welcome back, {{ teacher.name }}!
+        </h1>
+        <p class="text-xl sm:text-2xl opacity-90">
+            {{ teacher.term }} Term, {{ teacher.session }}
+        </p>
     </div>
 
     {% if is_primary_teacher %}
         <!-- PRIMARY TEACHER DASHBOARD -->
-        <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Your Assigned Classes</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 text-center heading-font">
+            Your Assigned Classes
+        </h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
             {% for class_name in class_teacher_of %}
-                <div class="bg-white rounded-3xl shadow-xl p-10 hover:shadow-2xl transition">
-                    <h3 class="text-3xl font-bold text-gray-800 mb-6">{{ class_name }}</h3>
-                    <div class="flex gap-4">
-                        <a href="{{ url_for('teacher.primary_class_students', class_name=class_name) }}" 
-                           class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white text-center py-6 rounded-2xl font-bold transition">
+                <div class="bg-white rounded-3xl shadow-lg hover:shadow-2xl transition-all duration-300 p-8 sm:p-10 group">
+                    <h3 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-8">{{ class_name }}</h3>
+                    
+                    <div class="flex flex-col sm:flex-row gap-4">
+                        <a href="{{ url_for('teacher.primary_class_students', class_name=class_name) }}"
+                           class="flex-1 bg-amber-600 hover:bg-amber-700 text-white text-center py-6 rounded-2xl font-semibold transition transform hover:scale-105">
                             ✏️ Enter / Edit Results
                         </a>
-                        <a href="{{ url_for('teacher.teacher_broadsheet', class_name=class_name) }}" 
-                           class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-center py-6 rounded-2xl font-bold transition">
+                        <a href="{{ url_for('teacher.teacher_broadsheet', class_name=class_name) }}"
+                           class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-center py-6 rounded-2xl font-semibold transition transform hover:scale-105">
                             📊 Generate Broadsheet
                         </a>
                     </div>
@@ -30,30 +40,35 @@
 
     {% else %}
         <!-- SECONDARY TEACHER DASHBOARD -->
-        <h2 class="text-2xl font-bold text-gray-800 mb-8 text-center">Your Assignments</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-
+        <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-10 text-center heading-font">
+            Your Assignments
+        </h2>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+            
             <!-- Class Teacher Cards -->
             {% for class_name in class_teacher_of %}
-                <a href="{{ url_for('teacher.class_detail', class_name=class_name) }}" 
-                   class="block bg-white rounded-3xl shadow-xl hover:shadow-2xl p-10 text-center transition">
-                    <div class="text-6xl mb-6">👩‍🏫</div>
-                    <h3 class="text-3xl font-bold">{{ class_name }}</h3>
-                    <p class="text-teal-600 mt-2">Class Teacher</p>
+                <a href="{{ url_for('teacher.class_detail', class_name=class_name) }}"
+                   class="block bg-white rounded-3xl shadow-lg hover:shadow-2xl p-8 sm:p-10 text-center transition-all group">
+                    <div class="text-6xl mb-6 text-amber-600 group-hover:scale-110 transition">👩‍🏫</div>
+                    <h3 class="text-2xl sm:text-3xl font-bold text-gray-800">{{ class_name }}</h3>
+                    <p class="text-amber-600 font-medium mt-2">Class Teacher</p>
                 </a>
             {% endfor %}
 
             <!-- Subject Teacher Cards -->
             {% for item in assigned_subjects %}
-                <a href="{{ url_for('teacher.subject_detail', subject=item.subject, class_name=item.get('class_name') or item.get('class')) }}" 
-                   class="block bg-white rounded-3xl shadow-xl hover:shadow-2xl p-10 text-center transition">
-                    <div class="text-6xl mb-6">📘</div>
-                    <h3 class="text-2xl font-bold">{{ item.subject }}</h3>
-                    <p class="text-gray-600">{{ item.get('class_name') or item.get('class') }}</p>
+                <a href="{{ url_for('teacher.subject_detail', subject=item.subject, class_name=item.get('class_name') or item.get('class')) }}"
+                   class="block bg-white rounded-3xl shadow-lg hover:shadow-2xl p-8 sm:p-10 text-center transition-all group">
+                    <div class="text-6xl mb-6 text-amber-600 group-hover:scale-110 transition">📘</div>
+                    <h3 class="text-2xl font-bold text-gray-800">{{ item.subject }}</h3>
+                    <p class="text-gray-600 mt-1">{{ item.get('class_name') or item.get('class') }}</p>
                 </a>
             {% endfor %}
-
+            
         </div>
     {% endif %}
+
 </div>
+
 {% endblock %}

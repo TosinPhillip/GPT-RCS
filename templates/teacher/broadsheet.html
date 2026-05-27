@@ -1,45 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-7xl mx-auto mt-12 px-4">
-    <div class="flex justify-between items-center mb-8">
-        <div>
-            <h1 class="text-4xl font-bold text-teal-700">{{ class_name }}</h1>
-            <p class="text-xl text-gray-600">{{ term }} Term • {{ current_session }}</p>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8" id="printable-broadsheet">
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
+                        {{ class_name }}
+                    </h1>
+                    <p class="text-amber-100 text-lg sm:text-xl mt-1">
+                        {{ term }} Term • {{ current_session }}
+                    </p>
+                </div>
+                <button onclick="window.print()" 
+                        class="px-8 py-4 bg-white/20 hover:bg-white/30 text-white font-semibold rounded-2xl transition flex items-center gap-3 text-base">
+                    🖨️ Print / Save as PDF
+                </button>
+            </div>
         </div>
-        <button onclick="window.print()" 
-                class="px-10 py-4 bg-teal-700 hover:bg-teal-600 text-white font-bold rounded-xl shadow-lg flex items-center gap-3">
-            🖨️ Print / Save as PDF
-        </button>
-    </div>
 
-    <div class="bg-white rounded-2xl shadow-xl overflow-hidden">
-        <div class="p-10">
-            <h2 class="text-2xl font-bold mb-8">Broadsheet - {{ class_name }}</h2>
+        <div class="p-6 sm:p-10">
+            <h2 class="text-2xl sm:text-3xl font-bold text-gray-800 mb-8 heading-font">
+                Broadsheet - {{ class_name }}
+            </h2>
 
-            <div class="overflow-x-auto">
-                <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-teal-100">
+            <div class="overflow-x-auto rounded-3xl border border-gray-100">
+                <table class="min-w-full">
+                    <thead class="bg-gray-50">
                         <tr>
-                            <th class="px-6 py-4 text-left font-semibold">Student</th>
-                            <th class="px-6 py-4 text-left font-semibold">Admission No</th>
+                            <th class="px-6 py-5 text-left font-medium text-gray-700">Student</th>
+                            <th class="px-6 py-5 text-left font-medium text-gray-700">Admission No</th>
                             {% for sub in subjects %}
-                                <th class="px-6 py-4 text-center font-semibold">{{ sub }}</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">{{ sub }}</th>
                             {% endfor %}
-                            <th class="px-6 py-4 text-center font-semibold text-teal-700">Row Total</th>
+                            <th class="px-6 py-5 text-center font-bold text-amber-700">Row Total</th>
                         </tr>
                     </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
+                    <tbody class="bg-white divide-y divide-gray-100">
                         {% for student in students %}
-                            <tr class="hover:bg-teal-50">
-                                <td class="px-6 py-4 font-medium">{{ student.name }}</td>
-                                <td class="px-6 py-4">{{ student.admission_number }}</td>
+                            <tr class="hover:bg-amber-50 transition">
+                                <td class="px-6 py-5 font-medium">{{ student.name }}</td>
+                                <td class="px-6 py-5 text-gray-600">{{ student.admission_number }}</td>
                                 {% for sub in subjects %}
-                                    <td class="px-6 py-4 text-center font-bold">
+                                    <td class="px-6 py-5 text-center font-bold">
                                         {% set result = student.get('results', {}).get(sub, {}) %}
                                         {{ result.get('total', 0) }}
                                     </td>
                                 {% endfor %}
-                                <td class="px-6 py-4 text-center font-bold text-teal-700">
+                                <td class="px-6 py-5 text-center font-bold text-amber-700">
                                     {{ student.row_total or 0 }}
                                 </td>
                             </tr>
@@ -56,7 +68,9 @@
     body * { visibility: hidden; }
     #printable-broadsheet, #printable-broadsheet * { visibility: visible; }
     #printable-broadsheet { position: absolute; left: 0; top: 0; width: 100%; }
-    button { display: none; }
+    nav, footer, button { display: none !important; }
+    .shadow-xl { box-shadow: none !important; }
 }
 </style>
+
 {% endblock %}

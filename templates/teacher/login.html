@@ -1,52 +1,66 @@
-<!-- templates/teacher/login.html -->
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-4xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl overflow-hidden">
-        <div class="bg-gradient-to-r from-teal-600 to-cyan-700 text-white p-10 text-center">
-            <h1 class="text-4xl font-bold mb-4">Teacher Login</h1>
-            <p class="text-xl opacity-90">Use your school email and phone number</p>
+
+<div class="max-w-md mx-auto mt-8 sm:mt-16 px-4 sm:px-0">
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+        
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12 text-center">
+            <div class="w-16 h-16 mx-auto mb-6 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
+                <i class="fas fa-chalkboard-teacher text-4xl"></i>
+            </div>
+            <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight mb-3">Teacher Login</h1>
+            <p class="text-amber-100">Access your teaching portal</p>
         </div>
 
-        <div class="p-10">
+        <!-- Form -->
+        <div class="p-8 sm:p-10">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, msg in messages %}
-                        <div class="alert alert-{{ 'danger' if category=='error' else category }} mb-8 p-6 rounded-xl text-white">
+                        <div class="mb-8 p-5 rounded-2xl text-white font-medium
+                                    {{ 'bg-red-500' if category=='error' else 'bg-green-500' }}">
                             {{ msg }}
                         </div>
                     {% endfor %}
                 {% endif %}
             {% endwith %}
 
-            <form method="POST" class="max-w-xl mx-auto">
-                <div class="mb-8">
-                    <label class="block text-lg font-medium text-gray-700 mb-3">Email Address</label>
-                    <input type="email" name="email" required placeholder="e.g. teacher@gptschool.edu.ng"
-                           class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-teal-300">
+            <form method="POST" class="space-y-8">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">School Email Address</label>
+                    <input type="email" name="email" required placeholder="teacher@gptschool.edu.ng"
+                           class="w-full px-6 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100 transition text-base">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">Phone Number (Password)</label>
+                    <input type="tel" name="password" required placeholder="08012345678"
+                           class="w-full px-6 py-4 border border-gray-200 rounded-2xl focus:outline-none focus:border-amber-500 focus:ring-4 focus:ring-amber-100 transition text-base">
+                    <p class="text-xs text-gray-500 mt-3">Your registered phone number is your password</p>
                 </div>
 
-                <div class="mb-10">
-                    <label class="block text-lg font-medium text-gray-700 mb-3">Phone Number (Password)</label>
-                    <input type="tel" name="password" required placeholder="e.g. 08012345678"
-                           class="w-full px-6 py-4 border border-gray-300 rounded-xl focus:ring-4 focus:ring-teal-300">
-                    <p class="text-sm text-gray-500 mt-3">Your registered phone number is your password</p>
-                </div>
-
-                <div class="text-center">
-                    <button type="submit"
-                            class="px-12 py-5 bg-teal-700 hover:bg-teal-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
-                        Login as Teacher
-                    </button>
-                </div>
+                <button type="submit"
+                        class="w-full py-5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-lg rounded-2xl shadow-lg transition transform active:scale-[0.98]">
+                    Sign In as Teacher
+                </button>
             </form>
 
-            <div class="text-center mt-8">
-                <p class="text-gray-600">
-                    Not yet registered? Contact the school administration.
+            <div class="text-center mt-10">
+                <p class="text-gray-600 text-sm">
+                    Not yet registered?<br>
+                    Contact the school administration.
                 </p>
             </div>
         </div>
     </div>
+
+    <div class="text-center mt-8">
+        <a href="/" class="text-amber-600 hover:text-amber-700 font-medium flex items-center justify-center gap-2">
+            <i class="fas fa-arrow-left"></i>
+            Back to Homepage
+        </a>
+    </div>
 </div>
+
 {% endblock %}

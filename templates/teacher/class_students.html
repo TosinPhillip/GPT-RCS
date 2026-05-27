@@ -1,25 +1,50 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-5xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl p-10">
-        <h2 class="text-3xl font-bold text-gray-800 mb-8">{{ class_name }} - {{ term }} Term</h2>
-        <p class="text-xl text-gray-600 mb-10">Class List • {{ students|length }} Students</p>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for student in students %}
-                <a href="{{ url_for('teacher.student_profile', adm_no=student.admission_number) }}"
-                   class="block bg-gradient-to-br from-green-50 to-teal-100 rounded-xl p-8 text-center shadow hover:shadow-xl transition transform hover:-translate-y-1">
-                    <div class="text-5xl mb-4">🎓</div>
-                    <h4 class="text-xl font-bold text-gray-800 mb-2">{{ student.name }}</h4>
-                    <p class="text-gray-700">{{ student.admission_number }}</p>
-                    <p class="text-sm text-gray-600 mt-4">View profile & comment</p>
-                </a>
-            {% endfor %}
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12">
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
+                        {{ class_name }}
+                    </h1>
+                    <p class="text-amber-100 text-lg mt-1">
+                        {{ term }} Term • {{ students|length }} Students
+                    </p>
+                </div>
+            </div>
         </div>
 
-        {% if not students %}
-            <p class="text-center text-gray-600 py-12">No students enrolled in this class yet.</p>
-        {% endif %}
+        <!-- Students Grid -->
+        <div class="p-6 sm:p-10">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {% for student in students %}
+                    <a href="{{ url_for('teacher.student_profile', adm_no=student.admission_number) }}"
+                       class="group block bg-white border border-gray-100 hover:border-amber-300 rounded-3xl p-8 text-center transition-all hover:shadow-xl hover:-translate-y-1">
+                        <div class="w-20 h-20 mx-auto mb-6 bg-amber-100 rounded-2xl flex items-center justify-center text-5xl text-amber-600 transition group-hover:scale-110">
+                            👤
+                        </div>
+                        <h4 class="text-xl font-semibold text-gray-800 group-hover:text-amber-700 transition">
+                            {{ student.name }}
+                        </h4>
+                        <p class="text-gray-500 font-medium mt-1">{{ student.admission_number }}</p>
+                        <p class="text-sm text-amber-600 mt-6 font-medium">View Profile & Comment →</p>
+                    </a>
+                {% endfor %}
+            </div>
+
+            {% if not students %}
+                <div class="text-center py-20">
+                    <div class="text-6xl mb-6 opacity-30">👥</div>
+                    <p class="text-gray-500 text-xl">No students enrolled in this class yet.</p>
+                </div>
+            {% endif %}
+        </div>
     </div>
 </div>
+
 {% endblock %}

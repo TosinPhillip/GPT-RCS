@@ -1,69 +1,76 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-6xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-3xl shadow-2xl overflow-hidden">
-        <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white p-10 text-center">
-            <h1 class="text-4xl font-bold mb-4">{{ subject }} - {{ class_name }}</h1>
-            <p class="text-xl opacity-90">{{ session }} • {{ term }} Term</p>
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
+                {{ subject }} - {{ class_name }}
+            </h1>
+            <p class="text-amber-100 mt-3 text-lg sm:text-xl">
+                {{ session }} • {{ term }} Term
+            </p>
         </div>
 
-        <div class="p-10 space-y-12">
+        <div class="p-6 sm:p-10 space-y-12">
+
             <!-- Enrollment Section -->
-            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-2xl p-8">
-                <h3 class="text-2xl font-bold text-indigo-800 mb-6">Enroll Students for {{ subject }}</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            <div class="bg-zinc-50 rounded-3xl p-6 sm:p-8">
+                <h3 class="text-2xl font-bold text-gray-800 mb-6">Enroll Students for {{ subject }}</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
                     {% for student in students %}
                         {% set adm_no = student.admission_number %}
                         {% set is_enrolled = adm_no in enrolled_student_ids %}
-                        <label class="flex items-center p-5 bg-white rounded-2xl shadow hover:shadow-md cursor-pointer transition">
+                        <label class="flex items-center p-5 bg-white rounded-2xl border hover:border-amber-200 cursor-pointer transition-all hover:shadow">
                             <input type="checkbox"
-                                   class="enroll-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500"
+                                   class="enroll-checkbox h-5 w-5 text-amber-600 rounded focus:ring-amber-500"
                                    value="{{ adm_no }}"
                                    {% if is_enrolled %}checked{% endif %}>
-                            <span class="ml-4 text-lg">
+                            <span class="ml-4 text-base sm:text-lg">
                                 <strong>{{ student.name }}</strong>
-                                <span class="text-gray-600 ml-2">({{ adm_no }})</span>
-                                {% if is_enrolled %}<span class="ml-4 text-green-600 font-bold">✓ Enrolled</span>{% endif %}
+                                <span class="text-gray-500 ml-2">({{ adm_no }})</span>
+                                {% if is_enrolled %}<span class="ml-4 text-emerald-600 font-medium">✓ Enrolled</span>{% endif %}
                             </span>
                         </label>
                     {% endfor %}
                 </div>
             </div>
 
-            <!-- Scores Section -->
+            <!-- Scoresheet -->
             <div id="results-container" class="{% if not enrolled_student_ids %}hidden{% endif %}">
-                <div class="flex justify-between items-center mb-8">
-                    <h3 class="text-2xl font-bold text-indigo-800">Scoresheet</h3>
-                    <button id="toggle-edit" 
-                            class="px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-2xl transition flex items-center gap-2">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                    <h3 class="text-2xl font-bold text-gray-800 heading-font">Scoresheet</h3>
+                    <button id="toggle-edit"
+                            class="px-8 py-3.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-2xl transition flex items-center gap-2 shadow">
                         <span>✏️ Edit Mode</span>
                     </button>
                 </div>
 
-                <div class="overflow-x-auto rounded-2xl border border-gray-200">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-indigo-100">
+                <div class="overflow-x-auto rounded-3xl border border-gray-100">
+                    <table class="min-w-full">
+                        <thead class="bg-gray-50">
                             <tr>
-                                <th class="px-6 py-5 text-left font-semibold w-80">Student</th>
-                                <th class="px-6 py-5 text-center font-semibold">CA1 (15)</th>
-                                <th class="px-6 py-5 text-center font-semibold">CA2 (15)</th>
-                                <th class="px-6 py-5 text-center font-semibold">Exam (70)</th>
-                                
+                                <th class="px-6 py-5 text-left font-medium text-gray-700">Student</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">CA1 (15)</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">CA2 (15)</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">Exam (70)</th>
                                 {% if term == 'Third' %}
-                                    <th class="px-6 py-5 text-center font-semibold bg-amber-50">1st Term Total</th>
-                                    <th class="px-6 py-5 text-center font-semibold bg-amber-50">2nd Term Total</th>
+                                    <th class="px-6 py-5 text-center font-medium text-gray-700 bg-amber-50">1st Term</th>
+                                    <th class="px-6 py-5 text-center font-medium text-gray-700 bg-amber-50">2nd Term</th>
                                 {% endif %}
-                                
-                                <th class="px-6 py-5 text-center font-bold text-indigo-700">Overall Total</th>
+                                <th class="px-6 py-5 text-center font-bold text-amber-700">Overall Total</th>
                             </tr>
                         </thead>
-                        <tbody id="scores-tbody" class="bg-white divide-y divide-gray-200 text-sm"></tbody>
+                        <tbody id="scores-tbody" class="bg-white divide-y divide-gray-100"></tbody>
                     </table>
                 </div>
 
                 <div class="text-center mt-10">
-                    <button id="save-all" 
-                            class="hidden px-12 py-5 bg-green-700 hover:bg-green-600 text-white text-xl font-bold rounded-2xl shadow-lg transition">
+                    <button id="save-all"
+                            class="hidden w-full sm:w-auto px-12 py-5 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-semibold rounded-2xl shadow-lg transition">
                         💾 Save All Scores
                     </button>
                 </div>
@@ -85,7 +92,6 @@
     const resultsContainer = document.getElementById('results-container');
     const toggleEditBtn = document.getElementById('toggle-edit');
     const saveBtn = document.getElementById('save-all');
-
     let editMode = false;
 
     function renderScoresTable() {
@@ -114,7 +120,6 @@
 
             const row = document.createElement('tr');
             row.dataset.admNo = admNo;
-
             row.innerHTML = `
                 <td class="px-6 py-5 font-medium">${student.name} <span class="text-gray-500">(${admNo})</span></td>
                 
@@ -122,47 +127,32 @@
                 <td class="px-6 py-5 text-center view-mode">${ca1}</td>
                 <td class="px-6 py-5 text-center view-mode">${ca2}</td>
                 <td class="px-6 py-5 text-center view-mode">${exam}</td>
-                
                 ${term === 'Third' ? `
                 <td class="px-6 py-5 text-center view-mode bg-amber-50">${cum1}</td>
                 <td class="px-6 py-5 text-center view-mode bg-amber-50">${cum2}</td>` : ''}
-                
-                <td class="px-6 py-5 text-center view-mode font-bold text-indigo-700">${total.toFixed(2)}</td>
+                <td class="px-6 py-5 text-center view-mode font-bold text-amber-700">${total.toFixed(2)}</td>
 
                 <!-- Edit Mode -->
                 <td class="px-6 py-5 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:border-indigo-500" 
-                           data-field="ca1" value="${ca1}" min="0" max="15">
+                    <input type="number" class="score-input w-20 border border-gray-200 rounded-xl px-3 py-2 text-center focus:border-amber-500" data-field="ca1" value="${ca1}" min="0" max="15">
                 </td>
                 <td class="px-6 py-5 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:border-indigo-500" 
-                           data-field="ca2" value="${ca2}" min="0" max="15">
+                    <input type="number" class="score-input w-20 border border-gray-200 rounded-xl px-3 py-2 text-center focus:border-amber-500" data-field="ca2" value="${ca2}" min="0" max="15">
                 </td>
                 <td class="px-6 py-5 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border border-gray-300 rounded-lg px-3 py-2 text-center focus:border-indigo-500" 
-                           data-field="exam" value="${exam}" min="0" max="70">
+                    <input type="number" class="score-input w-20 border border-gray-200 rounded-xl px-3 py-2 text-center focus:border-amber-500" data-field="exam" value="${exam}" min="0" max="70">
                 </td>
-                
                 ${term === 'Third' ? `
-                <td class="px-6 py-5 text-center edit-mode hidden bg-amber-50">
-                    <input type="number" class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center bg-gray-100" 
-                           value="${cum1}" readonly>
-                </td>
-                <td class="px-6 py-5 text-center edit-mode hidden bg-amber-50">
-                    <input type="number" class="w-20 border border-gray-300 rounded-lg px-3 py-2 text-center bg-gray-100" 
-                           value="${cum2}" readonly>
-                </td>` : ''}
-                
-                <td class="px-6 py-5 text-center edit-mode hidden font-bold text-indigo-700">
+                <td class="px-6 py-5 text-center edit-mode hidden bg-amber-50"><input type="number" class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center bg-gray-100" value="${cum1}" readonly></td>
+                <td class="px-6 py-5 text-center edit-mode hidden bg-amber-50"><input type="number" class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center bg-gray-100" value="${cum2}" readonly></td>` : ''}
+                <td class="px-6 py-5 text-center edit-mode hidden font-bold text-amber-700">
                     <span class="total-display">${total.toFixed(2)}</span>
                 </td>
             `;
 
-            // Real-time total update
+            // Real-time total calculation
             const inputs = row.querySelectorAll('.score-input');
-            inputs.forEach(input => {
-                input.addEventListener('input', () => updateRowTotal(row));
-            });
+            inputs.forEach(input => input.addEventListener('input', () => updateRowTotal(row)));
 
             tbody.appendChild(row);
         });
@@ -172,12 +162,8 @@
         const ca1 = parseFloat(row.querySelector('[data-field="ca1"]')?.value) || 0;
         const ca2 = parseFloat(row.querySelector('[data-field="ca2"]')?.value) || 0;
         const exam = parseFloat(row.querySelector('[data-field="exam"]')?.value) || 0;
-        
         let total = ca1 + ca2 + exam;
-        if (term === 'Third') {
-            total = Math.round((total) / 3 * 100) / 100;  // Simplified for now
-        }
-        
+        if (term === 'Third') total = Math.round((total) / 3 * 100) / 100;
         row.querySelector('.total-display').textContent = total.toFixed(2);
     }
 
@@ -186,23 +172,22 @@
         toggleEditBtn.innerHTML = editMode ? 
             `<span>👁️ View Mode</span>` : 
             `<span>✏️ Edit Mode</span>`;
-        
+
         document.querySelectorAll('.view-mode').forEach(el => el.classList.toggle('hidden', editMode));
         document.querySelectorAll('.edit-mode').forEach(el => el.classList.toggle('hidden', !editMode));
         saveBtn.classList.toggle('hidden', !editMode);
     }
 
-    // Save All Scores
+    // Save functionality (your logic preserved)
     saveBtn.addEventListener('click', async () => {
+        // ... (your existing save logic remains unchanged)
         const rows = tbody.querySelectorAll('tr');
         const updates = [];
-
         rows.forEach(row => {
             const admNo = row.dataset.admNo;
             const ca1 = parseFloat(row.querySelector('[data-field="ca1"]')?.value) || 0;
             const ca2 = parseFloat(row.querySelector('[data-field="ca2"]')?.value) || 0;
             const exam = parseFloat(row.querySelector('[data-field="exam"]')?.value) || 0;
-
             updates.push({ adm_no: admNo, ca1, ca2, exam });
         });
 
@@ -218,11 +203,10 @@
                     scores: updates
                 })
             });
-
             const data = await res.json();
             if (data.success) {
                 alert('✅ Scores saved successfully!');
-                location.reload(); // Refresh to show updated data
+                location.reload();
             } else {
                 alert('Failed to save scores');
             }
@@ -231,19 +215,9 @@
         }
     });
 
-    // Enrollment Handler
-    document.querySelectorAll('.enroll-checkbox').forEach(cb => {
-        cb.addEventListener('change', async () => {
-            // ... (your existing enrollment logic remains the same)
-            const admNo = cb.value;
-            const action = cb.checked ? 'enroll' : 'unenroll';
-            // ... rest of your enrollment code
-        });
-    });
-
+    // Event Listeners
     toggleEditBtn.addEventListener('click', toggleEditMode);
-    
-    // Initial render
     renderScoresTable();
 </script>
+
 {% endblock %}

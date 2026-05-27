@@ -1,34 +1,56 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-7xl mx-auto mt-12 px-4">
-    <div class="bg-white rounded-2xl shadow-2xl p-10">
-        <h2 class="text-3xl font-bold text-gray-800 mb-6">{{ class_name }} - {{ term }} Term</h2>
 
-        <div class="space-y-12">
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+
+    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+
+        <!-- Header -->
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12">
+            <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
+                {{ class_name }} - {{ term }} Term
+            </h1>
+            <p class="text-amber-100 mt-2 text-lg">Manage Subject Enrollments</p>
+        </div>
+
+        <div class="p-6 sm:p-10 space-y-12">
+
             {% for subject in subjects %}
-                <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8">
-                    <h3 class="text-2xl font-bold text-gray-800 mb-6">{{ subject }}</h3>
-                    <table class="w-full">
-                        <thead>
-                            <tr class="bg-indigo-100">
-                                <th class="p-4 text-left">Student</th>
-                                <th class="p-4 text-center">Enrolled</th>
-                                <th class="p-4 text-center">Action</th>
+            <div class="border border-gray-100 rounded-3xl overflow-hidden">
+                
+                <!-- Subject Header -->
+                <div class="bg-gray-50 px-6 sm:px-8 py-5 border-b">
+                    <h3 class="text-2xl font-semibold text-gray-800">{{ subject }}</h3>
+                </div>
+
+                <!-- Enrollment Table -->
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[650px]">
+                        <thead class="bg-white">
+                            <tr>
+                                <th class="px-6 py-5 text-left font-medium text-gray-700">Student</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">Status</th>
+                                <th class="px-6 py-5 text-center font-medium text-gray-700">Action</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody class="divide-y divide-gray-100">
                             {% for student in students %}
                                 {% set adm_no = student.admission_number %}
                                 {% set is_enrolled = adm_no in enrollments.get(subject, []) %}
-                                <tr class="border-b hover:bg-indigo-50">
-                                    <td class="p-4">{{ student.name }} ({{ adm_no }})</td>
-                                    <td class="p-4 text-center">
-                                        <span class="{% if is_enrolled %}text-green-600 font-bold{% else %}text-red-600{% endif %}">
-                                            {% if is_enrolled %}Yes{% else %}No{% endif %}
+                                <tr class="hover:bg-amber-50 transition">
+                                    <td class="px-6 py-5">
+                                        <div class="font-medium">{{ student.name }}</div>
+                                        <div class="text-gray-500 text-sm">{{ adm_no }}</div>
+                                    </td>
+                                    <td class="px-6 py-5 text-center">
+                                        <span class="inline-flex items-center px-4 py-1.5 rounded-2xl text-sm font-medium
+                                            {% if is_enrolled %}bg-emerald-100 text-emerald-700{% else %}bg-red-100 text-red-700{% endif %}">
+                                            {% if is_enrolled %}Enrolled{% else %}Not Enrolled{% endif %}
                                         </span>
                                     </td>
-                                    <td class="p-4 text-center">
-                                        <button class="enroll-btn px-6 py-3 rounded-lg text-white font-bold {% if is_enrolled %}bg-red-600 hover:bg-red-700{% else %}bg-green-600 hover:bg-green-700{% endif %}"
+                                    <td class="px-6 py-5 text-center">
+                                        <button class="enroll-btn px-8 py-3 rounded-2xl font-semibold transition transform active:scale-95
+                                            {% if is_enrolled %}bg-red-600 hover:bg-red-700 text-white{% else %}bg-amber-600 hover:bg-amber-700 text-white{% endif %}"
                                                 data-subject="{{ subject }}"
                                                 data-adm-no="{{ adm_no }}"
                                                 data-action="{% if is_enrolled %}unenroll{% else %}enroll{% endif %}">
@@ -40,7 +62,9 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
             {% endfor %}
+
         </div>
     </div>
 </div>
@@ -66,9 +90,10 @@ document.querySelectorAll('.enroll-btn').forEach(btn => {
         if (res.ok) {
             location.reload();
         } else {
-            alert('Error occurred');
+            alert('Error occurred. Please try again.');
         }
     });
 });
 </script>
+
 {% endblock %}
