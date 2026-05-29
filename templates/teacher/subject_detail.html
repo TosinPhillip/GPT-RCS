@@ -20,7 +20,7 @@
             <!-- Enrollment Section -->
             <div class="bg-zinc-50 rounded-3xl p-6 sm:p-8">
                 <h3 class="text-2xl font-bold text-gray-800 mb-6">Enroll Students for {{ subject }}</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2" id="enrollment-list">
                     {% for student in students %}
                         {% set adm_no = student.admission_number %}
                         {% set is_enrolled = adm_no in enrolled_student_ids %}
@@ -122,8 +122,6 @@
             row.dataset.admNo = admNo;
             row.innerHTML = `
                 <td class="px-6 py-5 font-medium">${student.name} <span class="text-gray-500">(${admNo})</span></td>
-                
-                <!-- View Mode -->
                 <td class="px-6 py-5 text-center view-mode">${ca1}</td>
                 <td class="px-6 py-5 text-center view-mode">${ca2}</td>
                 <td class="px-6 py-5 text-center view-mode">${exam}</td>
@@ -150,7 +148,6 @@
                 </td>
             `;
 
-            // Real-time total calculation
             const inputs = row.querySelectorAll('.score-input');
             inputs.forEach(input => input.addEventListener('input', () => updateRowTotal(row)));
 
@@ -169,18 +166,26 @@
 
     function toggleEditMode() {
         editMode = !editMode;
-        toggleEditBtn.innerHTML = editMode ? 
-            `<span>👁️ View Mode</span>` : 
-            `<span>✏️ Edit Mode</span>`;
-
+        toggleEditBtn.innerHTML = editMode ? `<span>👁️ View Mode</span>` : `<span>✏️ Edit Mode</span>`;
         document.querySelectorAll('.view-mode').forEach(el => el.classList.toggle('hidden', editMode));
         document.querySelectorAll('.edit-mode').forEach(el => el.classList.toggle('hidden', !editMode));
         saveBtn.classList.toggle('hidden', !editMode);
     }
 
-    // Save functionality (your logic preserved)
+    // Listen for enrollment changes and refresh scoresheet automatically
+    document.getElementById('enrollment-list').addEventListener('change', (e) => {
+        if (e.target.classList.contains('enroll-checkbox')) {
+            enrolledIds = Array.from(document.querySelectorAll('.enroll-checkbox:checked'))
+                               .map(cb => cb.value);
+            renderScoresTable();
+        }
+    });
+
+    // Toggle Edit Mode
+    toggleEditBtn.addEventListener('click', toggleEditMode);
+
+    // Save functionality (unchanged)
     saveBtn.addEventListener('click', async () => {
-        // ... (your existing save logic remains unchanged)
         const rows = tbody.querySelectorAll('tr');
         const updates = [];
         rows.forEach(row => {
@@ -215,8 +220,7 @@
         }
     });
 
-    // Event Listeners
-    toggleEditBtn.addEventListener('click', toggleEditMode);
+    // Initial render
     renderScoresTable();
 </script>
 
