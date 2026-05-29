@@ -1,47 +1,42 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="max-w-6xl mx-auto mt-12 px-4">
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
 
     <!-- Welcome Header -->
-    <div class="bg-gradient-to-r from-indigo-700 to-purple-700 text-white rounded-3xl shadow-2xl p-12 text-center mb-12">
-        <h1 class="text-5xl font-bold mb-4">
-            Welcome back, <span class="text-yellow-300">{{ student.name }}</span>!
+    <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white rounded-3xl shadow-xl p-8 sm:p-12 text-center mb-12">
+        <h1 class="text-4xl sm:text-5xl font-bold heading-font tracking-tight mb-4">
+            Welcome back, <span class="text-amber-200">{{ student.name }}</span>!
         </h1>
-        <div class="flex flex-wrap justify-center gap-x-8 gap-y-3 text-lg opacity-90">
+        <div class="flex flex-wrap justify-center gap-x-8 gap-y-3 text-base sm:text-lg opacity-90">
             <div><strong>Admission No:</strong> {{ student.admission_number }}</div>
             <div><strong>Class:</strong> {{ student.class or '—' }}</div>
-            <div>
-                <strong>Position in Class:</strong> 
-                {% if position_in_class %}
-                    {{ position_in_class }}<sup>{{ 'st' if position_in_class % 10 == 1 and position_in_class != 11 else 'nd' if position_in_class % 10 == 2 and position_in_class != 12 else 'rd' if position_in_class % 10 == 3 and position_in_class != 13 else 'th' }}</sup>
-                    out of {{ class_size or '—' }}
-                {% else %}
-                    — / {{ class_size or '—' }}
-                {% endif %}
+            <div><strong>Position:</strong> 
+                {% if position_in_class %}{{ position_in_class }}<sup>th</sup>{% else %}—{% endif %} out of {{ no_in_class }} students.
             </div>
         </div>
     </div>
 
-    <!-- Result Selector -->
-    <div class="bg-white rounded-3xl shadow-xl p-10 mb-12">
-        <h2 class="text-3xl font-bold text-gray-800 mb-8 text-center">View Your Results</h2>
+    <!-- Selector -->
+    <div class="bg-white rounded-3xl shadow-xl p-8 sm:p-10 mb-12">
+        <h2 class="text-3xl font-bold text-gray-800 mb-8 heading-font text-center">View Your Results</h2>
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-2xl mx-auto">
             <div>
-                <label for="session-select" class="block text-lg font-medium text-gray-700 mb-3">Academic Session</label>
-                <select id="session-select" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                <label class="block text-sm font-medium text-gray-700 mb-3">Academic Session</label>
+                <select id="session-select" class="w-full px-6 py-5 border border-gray-200 rounded-2xl focus:border-amber-500 focus:ring-amber-100">
                     <option value="">Select Session</option>
-                    {% for session in sessions %}
-                        <option value="{{ session }}" {% if session == selected_session %}selected{% endif %}>{{ session }}</option>
+                    {% for s in sessions %}
+                        <option value="{{ s }}">{{ s }}</option>
                     {% endfor %}
                 </select>
             </div>
             <div>
-                <label for="term-select" class="block text-lg font-medium text-gray-700 mb-3">Term</label>
-                <select id="term-select" class="w-full px-6 py-4 text-lg border border-gray-300 rounded-2xl focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                <label class="block text-sm font-medium text-gray-700 mb-3">Term</label>
+                <select id="term-select" class="w-full px-6 py-5 border border-gray-200 rounded-2xl focus:border-amber-500 focus:ring-amber-100">
                     <option value="">Select Term</option>
-                    {% for term in terms %}
-                        <option value="{{ term }}">{{ term }} Term</option>
+                    {% for t in terms %}
+                        <option value="{{ t }}">{{ t }} Term</option>
                     {% endfor %}
                 </select>
             </div>
@@ -49,82 +44,16 @@
 
         <div class="text-center mt-10">
             <button id="view-result-btn" 
-                    class="px-12 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-2xl shadow-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    class="w-full sm:w-auto px-16 py-5 bg-amber-600 hover:bg-amber-700 text-white text-lg font-semibold rounded-2xl shadow-lg transition disabled:opacity-50"
                     disabled>
                 Load Results
             </button>
         </div>
     </div>
 
-    <!-- Results Display Area -->
+    <!-- Results Display -->
     <div id="results-container" class="hidden"></div>
-
 </div>
-
-<!-- ====================== PRINTABLE REPORT CARD (Only this prints) ====================== -->
-<div id="printable-report" class="hidden print:block fixed inset-0 bg-white p-12" style="font-family: Arial, sans-serif;">
-    <div class="max-w-5xl mx-auto">
-        <div class="text-center mb-12 border-b pb-8">
-            <h1 class="text-5xl font-bold text-indigo-900">God's Peculiar Treasure School</h1>
-            <p class="text-xl text-gray-700 mt-2">Academic Report Card</p>
-            <p class="text-lg text-gray-600" id="print-session-term"></p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-12 mb-12">
-            <div>
-                <p><strong>Name:</strong> {{ student.name }}</p>
-                <p><strong>Admission Number:</strong> {{ student.admission_number }}</p>
-                <p><strong>Class:</strong> {{ student.class or '—' }}</p>
-            </div>
-            <div class="text-right">
-                <p><strong>Position in Class:</strong> 
-                    {% if position_in_class %}
-                        {{ position_in_class }}<sup>{{ 'st' if position_in_class % 10 == 1 and position_in_class != 11 else 'nd' if position_in_class % 10 == 2 and position_in_class != 12 else 'rd' if position_in_class % 10 == 3 and position_in_class != 13 else 'th' }}</sup> / {{ class_size }}
-                    {% else %}
-                        — / {{ class_size or '—' }}
-                    {% endif %}
-                </p>
-            </div>
-        </div>
-
-        <!-- Printable Results Table -->
-        <table class="w-full border-collapse border border-gray-400 mb-12" id="print-table">
-            <thead>
-                <tr class="bg-indigo-100">
-                    <th class="border border-gray-400 p-4 text-left">Subject</th>
-                    <th class="border border-gray-400 p-4 text-center">CA1</th>
-                    <th class="border border-gray-400 p-4 text-center">CA2</th>
-                    <th class="border border-gray-400 p-4 text-center">Exam</th>
-                    {% if term == 'Third' %}
-                        <th class="border border-gray-400 p-4 text-center">Cum 1st</th>
-                        <th class="border border-gray-400 p-4 text-center">Cum 2nd</th>
-                    {% endif %}
-                    <th class="border border-gray-400 p-4 text-center">Total</th>
-                    <th class="border border-gray-400 p-4 text-center">Position</th>
-                </tr>
-            </thead>
-            <tbody id="print-table-body">
-                <!-- Filled dynamically by JS -->
-            </tbody>
-        </table>
-        {% if results.teacher_comment %}
-        <div class="mt-12 bg-amber-50 border-l-8 border-amber-500 p-8 rounded-r-2xl">
-            <p class="text-xl font-semibold text-gray-800 mb-3">Class Teacher's Comment</p>
-            <p class="text-lg text-gray-700 italic">"{{ results.teacher_comment }}"</p>
-        </div>
-        {% endif %}
-
-        <div class="grid grid-cols-2 gap-12 mt-20">
-            <div class="text-center">
-                <p class="border-t border-gray-400 pt-8">Class Teacher's Signature</p>
-            </div>
-            <div class="text-center">
-                <p class="border-t border-gray-400 pt-8">Principal's Signature</p>
-            </div>
-        </div>
-    </div>
-</div>
-
 
 <script>
     const sessionSelect = document.getElementById('session-select');
@@ -140,199 +69,100 @@
     termSelect.addEventListener('change', updateButtonState);
 
     viewBtn.addEventListener('click', async () => {
-        const session = sessionSelect.value.trim();
-        const term = termSelect.value.trim();
+        const session = sessionSelect.value;
+        const term = termSelect.value;
 
+        if (!session || !term) return;
+
+        resultsContainer.classList.remove('hidden');
         resultsContainer.innerHTML = `
-            <div class="bg-white rounded-3xl shadow-xl p-16 text-center">
-                <div class="inline-block animate-spin rounded-full h-20 w-20 border-8 border-indigo-600 border-t-transparent"></div>
-                <p class="mt-8 text-2xl text-gray-600">Loading your results for ${term} Term...</p>
+            <div class="bg-white rounded-3xl shadow-xl p-20 text-center">
+                <div class="animate-spin w-16 h-16 border-4 border-amber-600 border-t-transparent rounded-full mx-auto"></div>
+                <p class="mt-6 text-lg text-gray-600">Loading your results...</p>
             </div>
         `;
-        resultsContainer.classList.remove('hidden');
 
         try {
-            const response = await fetch(`/student/results?session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}`);
-            const data = await response.json();
+            const res = await fetch(`/student/results?session=${encodeURIComponent(session)}&term=${encodeURIComponent(term)}`);
+            const data = await res.json();
 
-            if (!response.ok || data.error) {
-                throw new Error(data.error || 'Failed to load results');
+            console.log("Backend Response:", data); // For debugging
+
+            if (!res.ok || data.error) {
+                throw new Error(data.error || "Failed to load results");
             }
 
-            if (data.message) {
+            const result = data.results && data.results[0]; // ← Fixed: Access first item
+
+            if (!result || !result.subjects || result.subjects.length === 0) {
                 resultsContainer.innerHTML = `
                     <div class="bg-white rounded-3xl shadow-xl p-16 text-center">
-                        <div class="text-7xl mb-6">📭</div>
-                        <p class="text-3xl text-gray-700 mb-4">${data.message}</p>
-                        <p class="text-lg text-gray-500">Results may not have been uploaded yet.<br>Please check back later or contact the school admin.</p>
+                        <p class="text-6xl mb-6">📭</p>
+                        <p class="text-2xl text-gray-700">No results found</p>
+                        <p class="text-gray-500 mt-3">Results may not have been uploaded yet.</p>
                     </div>
                 `;
                 return;
             }
 
-            if (data.results && data.results.length > 0) {
-                const result = data.results[0];
-
-                const grandTotal = result.grand_total || 0;
-                const average = result.average || 0;
-                const classAverage = result.class_average ? result.class_average.toFixed(2) : 'N/A';
-                const overallPos = result.overall_position || '—';
-
-                let teacherCommentHtml = '';
-                if (result.teacher_comment) {
-                    teacherCommentHtml = `
-                        <div class="bg-amber-50 border-l-8 border-amber-500 p-8 mx-8 my-10 rounded-r-2xl">
-                            <p class="text-xl font-semibold text-gray-800 mb-3">Class Teacher's Comment</p>
-                            <p class="text-lg text-gray-700 italic">"${result.teacher_comment.replace(/"/g, '&quot;')}"</p>
-                        </div>
-                    `;
-                }
-
-                let subjectsHtml = `
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-indigo-100">
-                                <th class="p-6 font-semibold text-gray-800">Subject</th>
-                                <th class="p-6 text-center font-semibold text-gray-800">CA1</th>
-                                <th class="p-6 text-center font-semibold text-gray-800">CA2</th>
-                                <th class="p-6 text-center font-semibold text-gray-800">Exam</th>
-                `;
-
-                if (term === 'Third') {
-                    subjectsHtml += `
-                        <th class="p-6 text-center font-semibold text-gray-800">Cum 1st</th>
-                        <th class="p-6 text-center font-semibold text-gray-800">Cum 2nd</th>
-                    `;
-                }
-
-                subjectsHtml += `
-                                <th class="p-6 text-center font-semibold text-indigo-700">Total</th>
-                                <th class="p-6 text-center font-semibold text-purple-700">Position</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
-
-                result.subjects.forEach(sub => {
-                    const ca1 = sub.ca1 || 0;
-                    const ca2 = sub.ca2 || 0;
-                    const exam = sub.exam || 0;
-                    const cum1 = sub.cumulative1 || 0;
-                    const cum2 = sub.cumulative2 || 0;
-                    let subjectTotal = ca1 + ca2 + exam;
-                    if (term === 'Third') {
-                        subjectTotal = Math.round((cum1 + cum2 + ca1 + ca2 + exam) / 3 * 100) / 100;
-                    }
-
-                    subjectsHtml += `
-                        <tr class="border-b hover:bg-indigo-50 transition">
-                            <td class="p-6 font-medium">${sub.subject}</td>
-                            <td class="p-6 text-center">${ca1}</td>
-                            <td class="p-6 text-center">${ca2}</td>
-                            <td class="p-6 text-center">${exam}</td>
-                    `;
-                    if (term === 'Third') {
-                        subjectsHtml += `
-                            <td class="p-6 text-center">${cum1}</td>
-                            <td class="p-6 text-center">${cum2}</td>
-                        `;
-                    }
-                    subjectsHtml += `
-                            <td class="p-6 text-center font-bold text-indigo-700">${subjectTotal.toFixed(2)}</td>
-                            <td class="p-6 text-center font-semibold text-purple-700">${sub.position || '—'}</td>
+            // Build Subject Table
+            let subjectsHTML = `
+                <table class="w-full min-w-[700px]">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-5 text-left font-medium">Subject</th>
+                            <th class="px-6 py-5 text-center font-medium">CA1</th>
+                            <th class="px-6 py-5 text-center font-medium">CA2</th>
+                            <th class="px-6 py-5 text-center font-medium">Exam</th>
+                            <th class="px-6 py-5 text-center font-bold text-amber-700">Total</th>
+                            <th class="px-6 py-5 text-center font-medium">Position</th>
                         </tr>
-                    `;
-                });
+                    </thead>
+                    <tbody class="divide-y">
+            `;
 
-                subjectsHtml += `</tbody></table>`;
+            result.subjects.forEach(sub => {
+                subjectsHTML += `
+                    <tr class="hover:bg-amber-50">
+                        <td class="px-6 py-5 font-medium">${sub.subject}</td>
+                        <td class="px-6 py-5 text-center">${sub.ca1 || 0}</td>
+                        <td class="px-6 py-5 text-center">${sub.ca2 || 0}</td>
+                        <td class="px-6 py-5 text-center">${sub.exam || 0}</td>
+                        <td class="px-6 py-5 text-center font-bold text-amber-700">${sub.total || 0}</td>
+                        <td class="px-6 py-5 text-center font-medium">${sub.position || '—'}</td>
+                    </tr>
+                `;
+            });
 
-                resultsContainer.innerHTML = `
-                    <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-                        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-12 text-center">
-                            <h3 class="text-4xl font-bold mb-6">${session} • ${term} Term Results</h3>
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-10">
-                                <div><p class="text-lg opacity-90">Total Score</p><p class="text-5xl font-bold mt-3">${grandTotal.toFixed(2)}</p></div>
-                                <div><p class="text-lg opacity-90">Average</p><p class="text-5xl font-bold mt-3">${average}</p></div>
-                                <div><p class="text-lg opacity-90">Class Average</p><p class="text-5xl font-bold mt-3">${classAverage}</p></div>
-                                <div><p class="text-lg opacity-90">Position</p><p class="text-5xl font-bold mt-3">${overallPos}</p></div>
-                            </div>
-                        </div>
+            subjectsHTML += `</tbody></table>`;
 
-                        ${teacherCommentHtml}
-
-                        <div class="p-10">
-                            <h4 class="text-3xl font-bold text-gray-800 mb-10 text-center">Subject Performance</h4>
-                            ${subjectsHtml}
-                        </div>
-
-                        <div class="p-10 text-center bg-gray-50 border-t">
-                            <button onclick="printResults()" 
-                                    class="px-10 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-2xl shadow-lg transition">
-                                🖨️ Print Report Card
-                            </button>
+            // Final Display
+            resultsContainer.innerHTML = `
+                <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
+                    <div class="bg-gradient-to-r from-amber-600 to-yellow-600 text-white p-10 text-center">
+                        <h3 class="text-3xl font-bold">${session} • ${term} Term Results</h3>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-8 mt-8 text-sm">
+                            <div><strong>Total Score</strong><br><span class="text-4xl font-bold">${result.grand_total || 0}</span></div>
+                            <div><strong>Average</strong><br><span class="text-4xl font-bold">${result.average || 0}</span></div>
+                            <div><strong>Position</strong><br><span class="text-4xl font-bold">${result.overall_position || '—'}</span></div>
                         </div>
                     </div>
-                `;
+                    <div class="p-8 overflow-x-auto">
+                        ${subjectsHTML}
+                    </div>
+                </div>
+            `;
 
-                // Store data for printing
-                window.currentResultData = { result, session, term };
-            }
         } catch (err) {
             console.error(err);
             resultsContainer.innerHTML = `
                 <div class="bg-white rounded-3xl shadow-xl p-16 text-center">
-                    <div class="text-7xl mb-8 text-red-500">⚠️</div>
-                    <p class="text-3xl text-gray-800 mb-4">Failed to Load Results</p>
-                    <p class="text-lg text-gray-600">Please try again or contact the school admin.</p>
+                    <p class="text-6xl mb-6">⚠️</p>
+                    <p class="text-xl text-red-600">${err.message}</p>
                 </div>
             `;
         }
     });
-
-    // Dedicated Print Function - prints ONLY the report card
-    function printResults() {
-        if (!window.currentResultData) return;
-
-        const { result, session, term } = window.currentResultData;
-        const printBody = document.getElementById('print-table-body');
-        printBody.innerHTML = '';
-
-        result.subjects.forEach(sub => {
-            let subjectTotal = sub.ca1 + sub.ca2 + sub.exam;
-            if (term === 'Third') {
-                subjectTotal = Math.round((sub.cumulative1 + sub.cumulative2 + sub.ca1 + sub.ca2 + sub.exam) / 3 * 100) / 100;
-            }
-
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="border border-gray-400 p-4">${sub.subject}</td>
-                <td class="border border-gray-400 p-4 text-center">${sub.ca1 || 0}</td>
-                <td class="border border-gray-400 p-4 text-center">${sub.ca2 || 0}</td>
-                <td class="border border-gray-400 p-4 text-center">${sub.exam || 0}</td>
-                ${term === 'Third' ? 
-                    `<td class="border border-gray-400 p-4 text-center">${sub.cumulative1 || 0}</td>
-                     <td class="border border-gray-400 p-4 text-center">${sub.cumulative2 || 0}</td>` : ''}
-                <td class="border border-gray-400 p-4 text-center font-bold">${subjectTotal.toFixed(2)}</td>
-                <td class="border border-gray-400 p-4 text-center font-bold">${sub.position || '—'}</td>
-            `;
-            printBody.appendChild(row);
-        });
-        
-
-        // Update session/term in printable header
-        document.getElementById('print-session-term').textContent = `${session} • ${term} Term`;
-
-        // Trigger print
-        window.print();
-    }
 </script>
 
-<style>
-@media print {
-    body * { visibility: hidden; }
-    #printable-report, #printable-report * { visibility: visible; }
-    #printable-report { position: absolute; left: 0; top: 0; width: 100%; margin: 0; padding: 40px; }
-    .no-print { display: none !important; }
-}
-</style>
 {% endblock %}

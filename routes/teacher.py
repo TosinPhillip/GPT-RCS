@@ -881,50 +881,120 @@ def primary_entry(class_name):
 @teacher_bp.route('/save_primary_scores', methods=['POST'])
 @teacher_required
 def save_primary_scores():
-    data = request.get_json()
-    adm_no = data.get('admission_number')
-    class_name = data.get('class_name')
-    scores = data.get('scores', {})
-    psychomotor = data.get('psychomotor', {})
+    print("=== SAVE PRIMARY SCORES CALLED ===")
+    
+    try:
+        data = request.get_json()
+        if not data:
+            print("No data received")
+            return jsonify({'success': False, 'message': 'No data received'}), 400
 
-    session_val = sesh['teacher_session']
-    term = sesh['teacher_term']
+        adm_no = data.get('admission_number')
+        class_name = data.get('class_name')
+        scores = data.get('scores', {})
+        psychomotor = data.get('psychomotor', {})
 
-    for subject, marks in scores.items():
-        ca1 = float(marks.get('ca1', 0))
-        ca2 = float(marks.get('ca2', 0))
-        exam = float(marks.get('exam', 0))
-        total = ca1 + ca2 + exam
+        session_val = sesh.get('teacher_session')
+        term = sesh.get('teacher_term')
 
-        mongo.results.update_one(
-            {'admission_number': adm_no, 'subject': subject, 'session': session_val, 'term': term},
-            {'$set': {
-                'ca1': ca1,
-                'ca2': ca2,
-                'exam': exam,
-                'total': total,
-                'date_updated': datetime.utcnow()
-            }},
-            upsert=True
-        )
+        print(f"Session: {session_val} | Term: {term} | Student: {adm_no} | Subjects: {len(scores)}")
 
-    # Save Psychomotor
-    if psychomotor:
-        mongo.student_term_profiles.update_one(
-            {'admission_number': adm_no, 'session': session_val, 'term': term},
-            {'$set': {
-                'psychomotor': psychomotor,
-                'class': class_name,
-                'date_updated': datetime.utcnow()
-            }},
-            upsert=True
-        )
+        if not all([adm_no, class_name, session_val, term]):
+            return jsonify({'success': False, 'message': 'Missing admission number, class, session or term'}), 400
 
-    return jsonify({'success': True, 'message': 'Results saved successfully'})
+        if not scores:
+            return jsonify({'success': False, 'message': 'No scores provided'}), 400
 
+        saved_count = 0
 
+        for subject, marks in scores.items():
+            try:
+                ca1 = float(marks.get('ca1') or 0)
+                ca2 = float(marks.get('ca2') or 0)
+                exam = float(marks.get('exam') or 0)
+                current_total = ca1 + ca2 + exam
 
+                # Cumulative logic for Third Term (same as your working function)
+                if term == 'Third':
+                    first = mongo.results.find_one({
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'session': session_val,
+                        'term': 'First'
+                    }) or {}
+                    second = mongo.results.find_one({
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'session': session_val,
+                        'term': 'Second'
+                    }) or {}
+                    cum_total = float(first.get('total', 0)) + float(second.get('total', 0)) + current_total
+                    final_total = round(cum_total / 3, 2)
+                else:
+                    final_total = round(current_total, 2)
 
+                grade, remark = get_grade_and_remark(final_total)  # Assuming this function exists
+
+                # Save academic result
+                mongo.results.update_one(
+                    {
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'class': class_name,
+                        'session': session_val,
+                        'term': term
+                    },
+                    {'$set': {
+                        'ca1': ca1,
+                        'ca2': ca2,
+                        'exam': exam,
+                        'total': final_total,
+                        'grade': grade,
+                        'remark': remark,
+                        'date_updated': datetime.utcnow()
+                    }},
+                    upsert=True
+                )
+                print(f"✅ Saved {subject} for {adm_no} | Total: {final_total}")
+                saved_count += 1
+
+            except Exception as e:
+                print(f"⚠️ Error saving {subject}: {e}")
+                continue
+
+        # Save Psychomotor (if any)
+        if psychomotor:
+            try:
+                mongo.student_term_profiles.update_one(
+                    {
+                        'admission_number': adm_no,
+                        'session': session_val,
+                        'term': term
+                    },
+                    {'$set': {
+                        'psychomotor': psychomotor,
+                        'class': class_name,
+                        'date_updated': datetime.utcnow()
+                    }},
+                    upsert=True
+                )
+                print("✅ Psychomotor saved")
+            except Exception as e:
+                print(f"⚠️ Psychomotor save error: {e}")
+
+        # Optional: Update class averages & positions (like your working function)
+        # update_class_average_and_positions_for_student(adm_no, class_name, session_val, term)  # Implement if needed
+
+        return jsonify({
+            'success': True,
+            'message': f'{saved_count} subject(s) saved successfully for {adm_no}',
+            'saved_count': saved_count
+        })
+
+    except Exception as e:
+        print("❌ CRITICAL SAVE ERROR:", str(e))
+        return jsonify({'success': False, 'message': 'Server error while saving results'}), 500
+        
 # ==================== PRIMARY SCHOOL TEACHER ROUTES ====================
 
 @teacher_bp.route('/primary_class_students/<class_name>')

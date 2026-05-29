@@ -90,6 +90,7 @@ def dashboard():
 
     return render_template(
         'student/dashboard.html',
+        no_in_class=class_size,
         sessions=student_sessions,
         terms=available_terms,
         selected_session=selected_session,
