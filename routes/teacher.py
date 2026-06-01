@@ -1030,10 +1030,10 @@ def primary_class_students(class_name):
 @teacher_required
 def primary_student_entry(class_name, adm_no):
     teacher_email = sesh['teacher_email']
-    session_val = sesh['teacher_session']
-    term = sesh['teacher_term']
+    session_val = sesh.get('teacher_session')
+    term = sesh.get('teacher_term')
 
-    # Security
+    # Security Check
     assignment = mongo.class_assignments.find_one({
         'teacher_email': teacher_email,
         'class': class_name,
@@ -1044,18 +1044,221 @@ def primary_student_entry(class_name, adm_no):
         flash('Access denied.', 'error')
         return redirect(url_for('teacher.dashboard'))
 
-    student = mongo.term_enrollments.find_one({'admission_number': adm_no})
+    # Get student details
+    student_data = mongo.students.find_one({'admission_number': adm_no})
+    if not student_data:
+        flash('Student not found.', 'error')
+        return redirect(url_for('teacher.primary_class_students', class_name=class_name))
+    
+    # Verify enrollment
+    enrollment = mongo.term_enrollments.find_one({
+        'admission_number': adm_no,
+        'session': session_val,
+        'term': term,
+        'class': class_name
+    })
+    if not enrollment:
+        flash('Student not enrolled in this class/term.', 'error')
+        return redirect(url_for('teacher.primary_class_students', class_name=class_name))
 
-    # Get subjects for this class
+    # Get Subjects
     class_subjects_doc = mongo.primary_class_subjects.find_one({'class_name': class_name})
     subjects = class_subjects_doc.get('subjects', []) if class_subjects_doc else ["Mathematics", "English", "Basic Science"]
 
     psychomotor_skills = ["Punctuality", "Neatness", "Honesty", "Leadership", "Politeness", "Teamwork", "Initiative", "Reliability"]
 
+    # FIX: Fetch from the CORRECT collection - 'results' not 'primary_results'
+    existing_scores = {}
+    for subject in subjects:
+        result = mongo.results.find_one({
+            'admission_number': adm_no,
+            'subject': subject,
+            'class': class_name,
+            'session': session_val,
+            'term': term
+        })
+        if result:
+            existing_scores[subject] = {
+                'ca1': result.get('ca1', 0),
+                'ca2': result.get('ca2', 0),
+                'exam': result.get('exam', 0)
+            }
+    
+    # Fetch psychomotor from student_term_profiles
+    profile = mongo.student_term_profiles.find_one({
+        'admission_number': adm_no,
+        'session': session_val,
+        'term': term
+    })
+    existing_psychomotor = profile.get('psychomotor', {}) if profile else {}
+
     return render_template('teacher/primary_student_entry.html',
-                           student=student,
+                           student=student_data,
                            class_name=class_name,
                            subjects=subjects,
                            psychomotor_skills=psychomotor_skills,
                            term=term,
-                           session=session_val)
+                           session=session_val,
+                           existing_scores=existing_scores,
+                           existing_psychomotor=existing_psychomotor)
+
+
+
+@teacher_bp.route('/primary_broadsheet/<class_name>')
+@teacher_required
+def primary_teacher_broadsheet(class_name):
+    teacher_email = sesh['teacher_email']
+    session_val = sesh['teacher_session']
+    term = sesh['teacher_term']
+
+    # Security: Ensure this teacher is assigned as class teacher for this class
+    assignment = mongo.class_assignments.find_one({
+        'teacher_email': teacher_email,
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if not assignment:
+        flash('You are not the class teacher for this class.', 'error')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Get all students in this class for the term
+    students = list(mongo.term_enrollments.find({
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }).sort('name', 1))
+
+    if not students:
+        flash(f'No students enrolled in {class_name} for {term} Term.', 'info')
+        return redirect(url_for('teacher.dashboard'))
+
+    # Get subjects for this primary class (from class configuration)
+    class_subjects_doc = mongo.primary_class_subjects.find_one({'class_name': class_name})
+    if not class_subjects_doc or not class_subjects_doc.get('subjects'):
+        flash(f'No subjects configured for {class_name}. Please contact administrator.', 'error')
+        return redirect(url_for('teacher.dashboard'))
+    
+    subjects = class_subjects_doc.get('subjects', [])
+
+    # Fetch all results for these students in one go (efficient aggregation)
+    admission_numbers = [s['admission_number'] for s in students]
+    
+    # Get all results for these students
+    all_results = list(mongo.results.find({
+        'admission_number': {'$in': admission_numbers},
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    }))
+    
+    # Organize results by student and subject
+    results_by_student = {}
+    for result in all_results:
+        adm_no = result['admission_number']
+        subject = result['subject']
+        if adm_no not in results_by_student:
+            results_by_student[adm_no] = {}
+        results_by_student[adm_no][subject] = {
+            'ca1': result.get('ca1', 0),
+            'ca2': result.get('ca2', 0),
+            'exam': result.get('exam', 0),
+            'total': result.get('total', 0),
+            'grade': result.get('grade', 'F'),
+            'remark': result.get('remark', '')
+        }
+    
+    # Get psychomotor skills for all students
+    all_profiles = list(mongo.student_term_profiles.find({
+        'admission_number': {'$in': admission_numbers},
+        'session': session_val,
+        'term': term
+    }))
+    
+    psychomotor_by_student = {}
+    for profile in all_profiles:
+        adm_no = profile['admission_number']
+        psychomotor_by_student[adm_no] = profile.get('psychomotor', {})
+    
+    # Calculate overall performance for each student
+    student_performance = []
+    for student in students:
+        adm_no = student['admission_number']
+        student_results = results_by_student.get(adm_no, {})
+        
+        # Calculate subject totals and average
+        subject_totals = []
+        for subject in subjects:
+            if subject in student_results:
+                total = student_results[subject].get('total', 0)
+                subject_totals.append(total)
+        
+        if subject_totals:
+            total_score = sum(subject_totals)
+            average = round(total_score / len(subject_totals), 2)
+            
+            # Calculate overall grade based on average
+            if average >= 75:
+                overall_grade = 'A'
+                overall_remark = 'Excellent'
+            elif average >= 65:
+                overall_grade = 'B'
+                overall_remark = 'Very Good'
+            elif average >= 55:
+                overall_grade = 'C'
+                overall_remark = 'Good'
+            elif average >= 45:
+                overall_grade = 'D'
+                overall_remark = 'Average'
+            elif average >= 40:
+                overall_grade = 'E'
+                overall_remark = 'Pass'
+            else:
+                overall_grade = 'F'
+                overall_remark = 'Fail'
+        else:
+            total_score = 0
+            average = 0
+            overall_grade = 'N/A'
+            overall_remark = 'No Results'
+        
+        student_performance.append({
+            'student': student,
+            'results': student_results,
+            'psychomotor': psychomotor_by_student.get(adm_no, {}),
+            'total_score': total_score,
+            'average': average,
+            'overall_grade': overall_grade,
+            'overall_remark': overall_remark
+        })
+    
+    # Sort by total score (descending) for position
+    student_performance.sort(key=lambda x: x['total_score'], reverse=True)
+    
+    # Assign positions
+    for idx, perf in enumerate(student_performance, 1):
+        perf['position'] = idx
+    
+    # Sort back by student name for display
+    student_performance.sort(key=lambda x: x['student'].get('name', ''))
+    
+    # Get class teacher's comment (from term profile - can be added later)
+    class_comment = ""
+    class_profile = mongo.class_term_profiles.find_one({
+        'class': class_name,
+        'session': session_val,
+        'term': term
+    })
+    if class_profile:
+        class_comment = class_profile.get('teacher_comment', '')
+
+    return render_template(
+        'teacher/primary_broadsheet.html',
+        class_name=class_name,
+        term=term,
+        current_session=session_val,
+        subjects=subjects,
+        student_performance=student_performance,
+        class_comment=class_comment,
+        psychomotor_skills=["Punctuality", "Neatness", "Honesty", "Leadership", "Politeness", "Teamwork", "Initiative", "Reliability"]
+    )

@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="max-w-full overflow-x-auto px-4 py-8">
+    
+    <!-- Header -->
+    <div class="bg-white rounded-3xl shadow-xl mb-8">
+        <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 text-center rounded-t-3xl">
+            <h1 class="text-3xl sm:text-4xl font-bold heading-font">
+                {{ class_name }} - Broadsheet
+            </h1>
+            <p class="text-amber-100 mt-3 text-lg">
+                {{ current_session }} • {{ term }} Term
+            </p>
+        </div>
+        
+        <div class="p-6">
+            <!-- Print Button -->
+            <div class="flex justify-end mb-6">
+                <button onclick="window.print()" 
+                        class="px-6 py-3 bg-gray-600 hover:bg-gray-700 text-white rounded-2xl transition flex items-center gap-2">
+                    🖨️ Print Broadsheet
+                </button>
+            </div>
+            
+            <!-- Broadsheet Table -->
+            <div class="overflow-x-auto">
+                <table class="min-w-full border-collapse text-sm">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">S/N</th>
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Student Name</th>
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Adm No</th>
+                            {% for subject in subjects %}
+                            <th colspan="4" class="border border-gray-300 px-3 py-2 text-center font-bold">{{ subject }}</th>
+                            {% endfor %}
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Total</th>
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Average</th>
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Grade</th>
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Position</th>
+                            <th rowspan="2" class="border border-gray-300 px-4 py-3 text-center font-bold">Remark</th>
+                        </tr>
+                        <tr class="bg-gray-50">
+                            {% for subject in subjects %}
+                            <th class="border border-gray-300 px-2 py-2 text-xs">CA1</th>
+                            <th class="border border-gray-300 px-2 py-2 text-xs">CA2</th>
+                            <th class="border border-gray-300 px-2 py-2 text-xs">Exam</th>
+                            <th class="border border-gray-300 px-2 py-2 text-xs">Total</th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for perf in student_performance %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="border border-gray-300 px-4 py-2 text-center">{{ loop.index }}</td>
+                            <td class="border border-gray-300 px-4 py-2 font-medium">{{ perf.student.name }}</td>
+                            <td class="border border-gray-300 px-4 py-2 text-center">{{ perf.student.admission_number }}</td>
+                            
+                            {% for subject in subjects %}
+                            {% set result = perf.results.get(subject, {}) %}
+                            <td class="border border-gray-300 px-2 py-2 text-center">{{ result.get('ca1', '-') }}</td>
+                            <td class="border border-gray-300 px-2 py-2 text-center">{{ result.get('ca2', '-') }}</td>
+                            <td class="border border-gray-300 px-2 py-2 text-center">{{ result.get('exam', '-') }}</td>
+                            <td class="border border-gray-300 px-2 py-2 text-center font-semibold">{{ result.get('total', '-') }}</td>
+                            {% endfor %}
+                            
+                            <td class="border border-gray-300 px-4 py-2 text-center font-bold">{{ perf.total_score }}</td>
+                            <td class="border border-gray-300 px-4 py-2 text-center">{{ perf.average }}</td>
+                            <td class="border border-gray-300 px-4 py-2 text-center">
+                                <span class="inline-block px-2 py-1 rounded 
+                                    {% if perf.overall_grade == 'A' %}bg-green-100 text-green-800
+                                    {% elif perf.overall_grade == 'B' %}bg-blue-100 text-blue-800
+                                    {% elif perf.overall_grade == 'C' %}bg-yellow-100 text-yellow-800
+                                    {% elif perf.overall_grade == 'D' %}bg-orange-100 text-orange-800
+                                    {% elif perf.overall_grade == 'E' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ perf.overall_grade }}
+                                </span>
+                            </td>
+                            <td class="border border-gray-300 px-4 py-2 text-center font-semibold">{{ perf.position }}</td>
+                            <td class="border border-gray-300 px-4 py-2">{{ perf.overall_remark }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Psychomotor Skills Summary (Optional) -->
+            <div class="mt-12">
+                <h3 class="text-xl font-bold mb-4">Psychomotor Skills Summary</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full border-collapse">
+                        <thead>
+                            <tr class="bg-gray-100">
+                                <th class="border border-gray-300 px-4 py-2 text-left">Student</th>
+                                {% for skill in psychomotor_skills %}
+                                <th class="border border-gray-300 px-3 py-2 text-center text-sm">{{ skill }}</th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for perf in student_performance %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="border border-gray-300 px-4 py-2 font-medium">{{ perf.student.name }}</td>
+                                {% for skill in psychomotor_skills %}
+                                <td class="border border-gray-300 px-3 py-2 text-center">
+                                    {% set rating = perf.psychomotor.get(skill, '-') %}
+                                    {% if rating == '5' %}★★★★★
+                                    {% elif rating == '4' %}★★★★☆
+                                    {% elif rating == '3' %}★★★☆☆
+                                    {% elif rating == '2' %}★★☆☆☆
+                                    {% elif rating == '1' %}★☆☆☆☆
+                                    {% else %}-{% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Class Teacher's Comment -->
+            <div class="mt-12 p-6 bg-gray-50 rounded-2xl">
+                <h3 class="text-lg font-bold mb-3">Class Teacher's Comment</h3>
+                <textarea rows="3" 
+                          class="w-full p-4 border border-gray-300 rounded-2xl focus:border-amber-500 focus:ring-amber-100"
+                          placeholder="Enter overall class comment...">{{ class_comment }}</textarea>
+                <div class="flex justify-end mt-4">
+                    <button onclick="saveClassComment()" 
+                            class="px-6 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition">
+                        Save Comment
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Grading Scale -->
+            <div class="mt-8 text-sm text-gray-600 border-t pt-6">
+                <h4 class="font-semibold mb-2">Grading Scale:</h4>
+                <div class="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                    <div>A: 75% and above (Excellent)</div>
+                    <div>B: 65% - 74% (Very Good)</div>
+                    <div>C: 55% - 64% (Good)</div>
+                    <div>D: 45% - 54% (Average)</div>
+                    <div>E: 40% - 44% (Pass)</div>
+                    <div>F: Below 40% (Fail)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function saveClassComment() {
+        const comment = document.querySelector('textarea').value;
+        
+        try {
+            const res = await fetch('/teacher/save_class_comment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    class_name: '{{ class_name }}',
+                    session: '{{ current_session }}',
+                    term: '{{ term }}',
+                    comment: comment
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Comment saved successfully!');
+            } else {
+                alert('Failed to save comment');
+            }
+        } catch (err) {
+            alert('Network error. Please try again.');
+        }
+    }
+</script>
+
+<style media="print">
+    @media print {
+        .no-print, button, .flex.justify-end, .mt-12:has(button) {
+            display: none !important;
+        }
+        body {
+            background: white;
+        }
+        .shadow-xl {
+            box-shadow: none;
+        }
+        table {
+            font-size: 10pt;
+        }
+        .bg-gradient-to-br {
+            background: #d97706 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+    }
+</style>
+
+{% endblock %}
