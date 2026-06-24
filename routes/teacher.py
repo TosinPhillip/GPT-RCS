@@ -886,7 +886,7 @@ def save_primary_scores():
     try:
         data = request.get_json()
         if not data:
-            print("No data received")
+            print("❌ No JSON data received")
             return jsonify({'success': False, 'message': 'No data received'}), 400
 
         adm_no = data.get('admission_number')
@@ -897,10 +897,11 @@ def save_primary_scores():
         session_val = sesh.get('teacher_session')
         term = sesh.get('teacher_term')
 
-        print(f"Session: {session_val} | Term: {term} | Student: {adm_no} | Subjects: {len(scores)}")
+        print(f"📌 Session: {session_val} | Term: {term} | Student: {adm_no}")
+        print(f"📌 Scores keys: {list(scores.keys()) if scores else 'None'}")
 
         if not all([adm_no, class_name, session_val, term]):
-            return jsonify({'success': False, 'message': 'Missing admission number, class, session or term'}), 400
+            return jsonify({'success': False, 'message': 'Missing session data'}), 400
 
         if not scores:
             return jsonify({'success': False, 'message': 'No scores provided'}), 400
@@ -913,38 +914,25 @@ def save_primary_scores():
                 ca2 = float(marks.get('ca2') or 0)
                 exam = float(marks.get('exam') or 0)
                 current_total = ca1 + ca2 + exam
+                final_total = round(current_total, 2)
 
-                # Cumulative logic for Third Term (same as your working function)
-                if term == 'Third':
-                    first = mongo.results.find_one({
-                        'admission_number': adm_no,
-                        'subject': subject,
-                        'session': session_val,
-                        'term': 'First'
-                    }) or {}
-                    second = mongo.results.find_one({
-                        'admission_number': adm_no,
-                        'subject': subject,
-                        'session': session_val,
-                        'term': 'Second'
-                    }) or {}
-                    cum_total = float(first.get('total', 0)) + float(second.get('total', 0)) + current_total
-                    final_total = round(cum_total / 3, 2)
-                else:
-                    final_total = round(current_total, 2)
+                # Safe grade
+                try:
+                    grade, remark = get_grade_and_remark(final_total)
+                except:
+                    grade, remark = "P", "Pass"
 
-                grade, remark = get_grade_and_remark(final_total)  # Assuming this function exists
+                # === CRITICAL: Full diagnostic ===
+                filter_query = {
+                    'admission_number': adm_no,
+                    'subject': subject,
+                    'class': class_name,
+                    'session': session_val,
+                    'term': term
+                }
 
-                # Save academic result
-                mongo.results.update_one(
-                    {
-                        'admission_number': adm_no,
-                        'subject': subject,
-                        'class': class_name,
-                        'session': session_val,
-                        'term': term
-                    },
-                    {'$set': {
+                update_doc = {
+                    '$set': {
                         'ca1': ca1,
                         'ca2': ca2,
                         'exam': exam,
@@ -952,39 +940,32 @@ def save_primary_scores():
                         'grade': grade,
                         'remark': remark,
                         'date_updated': datetime.utcnow()
-                    }},
-                    upsert=True
-                )
-                print(f"✅ Saved {subject} for {adm_no} | Total: {final_total}")
+                    }
+                }
+
+                result = mongo.results.update_one(filter_query, update_doc, upsert=True)
+                
+                print(f"✅ Update Result for {subject}:")
+                print(f"   Matched: {result.matched_count}, Modified: {result.modified_count}, Upserted: {result.upserted_id}")
+
                 saved_count += 1
 
             except Exception as e:
-                print(f"⚠️ Error saving {subject}: {e}")
-                continue
+                print(f"⚠️ Error processing {subject}: {e}")
 
-        # Save Psychomotor (if any)
+        # Psychomotor
         if psychomotor:
             try:
                 mongo.student_term_profiles.update_one(
-                    {
-                        'admission_number': adm_no,
-                        'session': session_val,
-                        'term': term
-                    },
-                    {'$set': {
-                        'psychomotor': psychomotor,
-                        'class': class_name,
-                        'date_updated': datetime.utcnow()
-                    }},
+                    {'admission_number': adm_no, 'session': session_val, 'term': term},
+                    {'$set': {'psychomotor': psychomotor, 'class': class_name, 'date_updated': datetime.utcnow()}},
                     upsert=True
                 )
                 print("✅ Psychomotor saved")
             except Exception as e:
-                print(f"⚠️ Psychomotor save error: {e}")
+                print(f"⚠️ Psychomotor error: {e}")
 
-        # Optional: Update class averages & positions (like your working function)
-        # update_class_average_and_positions_for_student(adm_no, class_name, session_val, term)  # Implement if needed
-
+        print(f"🎉 Finished - Saved {saved_count} subjects")
         return jsonify({
             'success': True,
             'message': f'{saved_count} subject(s) saved successfully for {adm_no}',
@@ -992,8 +973,10 @@ def save_primary_scores():
         })
 
     except Exception as e:
-        print("❌ CRITICAL SAVE ERROR:", str(e))
-        return jsonify({'success': False, 'message': 'Server error while saving results'}), 500
+        print("❌ CRITICAL ERROR:", str(e))
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'message': 'Server error'}), 500
         
 # ==================== PRIMARY SCHOOL TEACHER ROUTES ====================
 

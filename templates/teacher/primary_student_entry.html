@@ -1,10 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
-
 <div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-
         <!-- Header -->
         <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12 text-center">
             <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
@@ -16,48 +13,45 @@
         </div>
 
         <div class="p-6 sm:p-10">
-
             <h2 class="text-3xl font-bold heading-font mb-6 text-center">Enter Academic Results</h2>
-
-            <form id="result-form" onsubmit="saveResults(event)" class="space-y-12">
-
+            
+            <form id="result-form" class="space-y-12">
                 <!-- Academic Subjects -->
                 {% for subject in subjects %}
-{% set subject_scores = existing_scores.get(subject, {}) %}
-<div class="border border-gray-100 rounded-3xl p-8 bg-white">
-    <h3 class="text-2xl font-semibold mb-8 text-gray-800">{{ subject }}</h3>
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
-        <div>
-            <label class="block text-sm font-medium text-gray-600 mb-3">CA1 (15)</label>
-            <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5"
-                   value="{{ subject_scores.get('ca1', '') }}"
-                   class="w-full border border-gray-200 rounded-2xl px-6 py-6 text-center text-3xl focus:border-amber-500 focus:ring-amber-100 transition font-semibold">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-600 mb-3">CA2 (15)</label>
-            <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5"
-                   value="{{ subject_scores.get('ca2', '') }}"
-                   class="w-full border border-gray-200 rounded-2xl px-6 py-6 text-center text-3xl focus:border-amber-500 focus:ring-amber-100 transition font-semibold">
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-600 mb-3">Exam (70)</label>
-            <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5"
-                   value="{{ subject_scores.get('exam', '') }}"
-                   class="w-full border border-gray-200 rounded-2xl px-6 py-6 text-center text-3xl focus:border-amber-500 focus:ring-amber-100 transition font-semibold">
-        </div>
-    </div>
-</div>
-{% endfor %}
+                {% set subject_scores = existing_scores.get(subject, {}) %}
+                <div class="border border-gray-100 rounded-3xl p-8 bg-white">
+                    <h3 class="text-2xl font-semibold mb-8 text-gray-800">{{ subject }}</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-8">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-3">CA1 (15)</label>
+                            <input type="number" name="ca1_{{ subject }}" min="0" max="15" step="0.5"
+                                   value="{{ subject_scores.get('ca1', '') }}"
+                                   class="w-full border border-gray-200 rounded-2xl px-6 py-6 text-center text-3xl focus:border-amber-500 focus:ring-amber-100 transition font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-3">CA2 (15)</label>
+                            <input type="number" name="ca2_{{ subject }}" min="0" max="15" step="0.5"
+                                   value="{{ subject_scores.get('ca2', '') }}"
+                                   class="w-full border border-gray-200 rounded-2xl px-6 py-6 text-center text-3xl focus:border-amber-500 focus:ring-amber-100 transition font-semibold">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-3">Exam (70)</label>
+                            <input type="number" name="exam_{{ subject }}" min="0" max="70" step="0.5"
+                                   value="{{ subject_scores.get('exam', '') }}"
+                                   class="w-full border border-gray-200 rounded-2xl px-6 py-6 text-center text-3xl focus:border-amber-500 focus:ring-amber-100 transition font-semibold">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
 
-                <!-- Psychomotor Skills Section -->
+                <!-- Psychomotor -->
                 <div class="border border-gray-100 rounded-3xl p-6 bg-white shadow-sm">
                     <h3 class="text-2xl font-semibold mb-6 text-gray-800 border-b pb-3">Psychomotor Skills</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                         {% for skill in psychomotor_skills %}
                         <div>
-                            <label class="block text-sm font-medium text-gray-600 mb-2">{{ skill }}</label>
-                            <select name="psycho_{{ skill }}" 
-                                    class="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center focus:border-amber-500 focus:ring-amber-100 transition">
+                            <label class="block text-sm font-medium text-gray-600 mb-2">{{ skill.replace('_', ' ') }}</label>
+                            <select name="psycho_{{ skill }}" class="w-full border border-gray-200 rounded-2xl px-4 py-3 text-center focus:border-amber-500 focus:ring-amber-100 transition">
                                 <option value="">Select</option>
                                 <option value="5" {% if existing_psychomotor.get(skill) == '5' %}selected{% endif %}>5 - Excellent</option>
                                 <option value="4" {% if existing_psychomotor.get(skill) == '4' %}selected{% endif %}>4 - Very Good</option>
@@ -70,71 +64,92 @@
                     </div>
                 </div>
 
-                <div class="text-center pt-4">
-                    <button type="submit"
-                            class="w-full sm:w-auto px-12 py-4 bg-amber-600 hover:bg-amber-700 text-white text-lg font-semibold rounded-2xl shadow-lg transition">
+                <div class="text-center pt-8">
+                    <button type="button" id="save-btn"
+                            class="w-full sm:w-auto px-16 py-5 bg-amber-600 hover:bg-amber-700 text-white text-xl font-semibold rounded-3xl shadow-lg transition transform active:scale-95">
                         💾 Save All Results
                     </button>
                 </div>
+
+                <div id="feedback" class="text-center min-h-[50px] font-medium mt-4"></div>
             </form>
         </div>
     </div>
 </div>
 
 <script>
-    async function saveResults(e) {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const scores = {};
-        const psychomotor = {};
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('✅ JavaScript loaded - Save button ready');
 
-        // Process academic scores
-        {% for subject in subjects %}
-        scores["{{ subject }}"] = {
-            ca1: parseFloat(formData.get("ca1_{{ subject }}")) || 0,
-            ca2: parseFloat(formData.get("ca2_{{ subject }}")) || 0,
-            exam: parseFloat(formData.get("exam_{{ subject }}")) || 0
-        };
-        {% endfor %}
+        const saveBtn = document.getElementById('save-btn');
+        const feedback = document.getElementById('feedback');
 
-        // Process psychomotor skills
-        {% for skill in psychomotor_skills %}
-        const psychoValue = formData.get("psycho_{{ skill }}");
-        if (psychoValue) {
-            psychomotor["{{ skill }}"] = psychoValue;
+        if (!saveBtn) {
+            console.error('Save button not found!');
+            return;
         }
-        {% endfor %}
 
-        const payload = {
-            admission_number: "{{ student.admission_number }}",
-            class_name: "{{ class_name }}",
-            session: "{{ session }}",
-            term: "{{ term }}",
-            scores: scores,
-            psychomotor: psychomotor
-        };
+        saveBtn.addEventListener('click', async function () {
+            console.log('Save button clicked');
 
-        console.log("Saving payload:", payload);
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            feedback.innerHTML = '';
 
-        try {
-            const res = await fetch('/teacher/save_primary_scores', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-           
-            if (data.success) {
-                alert("✅ Results saved successfully for {{ student.name }}!");
-                location.reload();
-            } else {
-                alert(data.message || "Failed to save results");
+            const formData = new FormData(document.getElementById('result-form'));
+            const scores = {};
+            const psychomotor = {};
+
+            // Academic scores
+            {% for subject in subjects %}
+            scores["{{ subject }}"] = {
+                ca1: parseFloat(formData.get("ca1_{{ subject }}")) || 0,
+                ca2: parseFloat(formData.get("ca2_{{ subject }}")) || 0,
+                exam: parseFloat(formData.get("exam_{{ subject }}")) || 0
+            };
+            {% endfor %}
+
+            // Psychomotor (fixed variable scope)
+            {% for skill in psychomotor_skills %}
+            {
+                const val = formData.get("psycho_{{ skill }}");
+                if (val) psychomotor["{{ skill }}"] = val;
             }
-        } catch (err) {
-            console.error("Save error:", err);
-            alert("Network error. Please try again.");
-        }
-    }
-</script>
+            {% endfor %}
 
+            const payload = {
+                admission_number: "{{ student.admission_number }}",
+                class_name: "{{ class_name }}",
+                scores: scores,
+                psychomotor: psychomotor
+            };
+
+            console.log("Payload:", payload);
+
+            try {
+                const res = await fetch('/teacher/save_primary_scores', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await res.json();
+                console.log("Response:", data);
+
+                if (data.success) {
+                    feedback.innerHTML = `<p class="text-green-600">${data.message}</p>`;
+                    setTimeout(() => window.location.reload(), 1500);
+                } else {
+                    feedback.innerHTML = `<p class="text-red-600">${data.message || 'Failed to save'}</p>`;
+                }
+            } catch (err) {
+                console.error("Error:", err);
+                feedback.innerHTML = `<p class="text-red-600">Network error. Check console (F12).</p>`;
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.textContent = '💾 Save All Results';
+            }
+        });
+    });
+</script>
 {% endblock %}
