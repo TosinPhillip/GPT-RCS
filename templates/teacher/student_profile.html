@@ -76,7 +76,6 @@
             <form method="POST" action="{{ url_for('teacher.save_profile') }}" class="space-y-12">
                 <input type="hidden" name="adm_no" value="{{ student.admission_number }}">
 
-                <!-- Class Teacher Comment -->
                 <div>
                     <h3 class="text-2xl font-bold text-gray-800 mb-6 heading-font">Class Teacher Comment</h3>
                     <textarea name="comment" rows="6" 
@@ -85,7 +84,6 @@
                     </textarea>
                 </div>
 
-                <!-- Psychomotor Skills -->
                 <div>
                     <h3 class="text-2xl font-bold text-gray-800 mb-8 heading-font">Psychomotor Skills Rating (1-5)</h3>
                     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -106,15 +104,13 @@
                     </div>
                 </div>
 
-                <!-- Submit -->
                 <div class="text-center pt-6">
-                    <button type="submit" 
+                    <button type="submit"
                             class="w-full sm:w-auto px-12 py-5 bg-amber-600 hover:bg-amber-700 text-white text-lg font-semibold rounded-2xl shadow-lg transition transform active:scale-[0.98]">
                         Save Comment &amp; Ratings
                     </button>
                 </div>
             </form>
-
         </div>
     </div>
 </div>

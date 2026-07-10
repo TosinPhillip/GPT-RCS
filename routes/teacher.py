@@ -476,7 +476,7 @@ def class_detail(class_name):
         session=session_val
     )
 
-# Student Profile Page — Comment & Psychomotor Ratings
+# Student profile
 @teacher_bp.route('/student/<regex:adm_no>')
 @teacher_required
 def student_profile(adm_no):
@@ -489,7 +489,7 @@ def student_profile(adm_no):
         flash('Student not found', 'error')
         return redirect(url_for('teacher.dashboard'))
 
-    # Verify teacher is class teacher of this student's class
+    # Get current enrollment
     enrollment = mongo.term_enrollments.find_one({
         'admission_number': adm_no,
         'session': session_val,
@@ -499,6 +499,7 @@ def student_profile(adm_no):
         flash('Student not enrolled in current term', 'error')
         return redirect(url_for('teacher.dashboard'))
 
+    # Verify teacher is class teacher
     assignment = mongo.class_assignments.find_one({
         'teacher_email': teacher_email,
         'class': enrollment['class'],
@@ -509,20 +510,35 @@ def student_profile(adm_no):
         flash('You are not the class teacher of this student', 'error')
         return redirect(url_for('teacher.dashboard'))
 
-    # Fetch or create profile
-    profile = mongo.student_term_profiles.find_one({
-        'admission_number': adm_no,
-        'session': session_val,
-        'term': term
-    }) or {}
-
+    # Fetch current term results
     results = list(mongo.results.find({
         'admission_number': adm_no,
         'session': session_val,
         'term': term
     }).sort('subject', 1))
 
-    # Fetch profile for comment/ratings
+    # For Third Term: Add cumulative from previous terms
+    if term == 'Third':
+        for res in results:
+            # Fetch 1st Term
+            first = mongo.results.find_one({
+                'admission_number': adm_no,
+                'session': session_val,
+                'term': 'First',
+                'subject': res['subject']
+            })
+            res['cumulative1'] = first.get('total', 0) if first else 0
+
+            # Fetch 2nd Term
+            second = mongo.results.find_one({
+                'admission_number': adm_no,
+                'session': session_val,
+                'term': 'Second',
+                'subject': res['subject']
+            })
+            res['cumulative2'] = second.get('total', 0) if second else 0
+
+    # Fetch or create profile (comment & psychomotor)
     profile = mongo.student_term_profiles.find_one({
         'admission_number': adm_no,
         'session': session_val,
@@ -534,7 +550,6 @@ def student_profile(adm_no):
         'politeness', 'teamwork', 'initiative', 'reliability'
     ]
 
-
     return render_template(
         'teacher/student_profile.html',
         student=student,
@@ -545,7 +560,6 @@ def student_profile(adm_no):
         term=term,
         session=session_val
     )
-
 # Save Comment & Ratings
 @teacher_bp.route('/save_profile', methods=['POST'])
 @teacher_required

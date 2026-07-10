@@ -124,7 +124,7 @@ def get_results():
     if not enrollment or not enrollment.get('results_visible', True):
         return jsonify({'error': 'Results are currently hidden by administration for this term'}), 403
 
-    # Fetch results for selected session + term
+    # Fetch current term results
     subject_docs = list(mongo.results.find({
         'admission_number': adm_no,
         'session': session_name,
@@ -144,10 +144,28 @@ def get_results():
         ca1 = float(doc.get('ca1', 0))
         ca2 = float(doc.get('ca2', 0))
         exam = float(doc.get('exam', 0))
-        cum1 = float(doc.get('cumulative1', 0))
-        cum2 = float(doc.get('cumulative2', 0))
+        cum1 = 0.0
+        cum2 = 0.0
 
         if term_name == 'Third':
+            # Pull 1st Term
+            first = mongo.results.find_one({
+                'admission_number': adm_no,
+                'session': session_name,
+                'term': 'First',
+                'subject': doc['subject']
+            })
+            cum1 = float(first.get('total', 0)) if first else 0
+
+            # Pull 2nd Term
+            second = mongo.results.find_one({
+                'admission_number': adm_no,
+                'session': session_name,
+                'term': 'Second',
+                'subject': doc['subject']
+            })
+            cum2 = float(second.get('total', 0)) if second else 0
+
             subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / 3, 2)
         else:
             subject_total = ca1 + ca2 + exam
@@ -165,20 +183,18 @@ def get_results():
             'position': doc.get('position', '—'),
         })
 
-    # Get Class Teacher's Comment from student_term_profiles
+    # Get Class Teacher's Comment
     profile = mongo.student_term_profiles.find_one({
         'admission_number': adm_no,
         'session': session_name,
         'term': term_name
     }) or {}
-
     teacher_comment = profile.get('class_teacher_comment', '')
 
     # Aggregates
-    first_doc = subject_docs[0] if subject_docs else {}
     average = round(grand_total / len(subjects), 2) if subjects else 0
-    class_average = first_doc.get('class_average')
-    overall_position = first_doc.get('overall_position')
+    class_average = subject_docs[0].get('class_average') if subject_docs else None
+    overall_position = subject_docs[0].get('overall_position') if subject_docs else None
 
     result_payload = {
         'subjects': subjects,
@@ -186,7 +202,7 @@ def get_results():
         'average': average,
         'class_average': class_average,
         'overall_position': overall_position,
-        'teacher_comment': teacher_comment,   # ← Now included
+        'teacher_comment': teacher_comment,
     }
 
     return jsonify({'results': [result_payload]})
