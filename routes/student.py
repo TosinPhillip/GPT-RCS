@@ -3,7 +3,7 @@ from flask import Blueprint, render_template, request, session as sesh, jsonify,
 from extensions import mongo
 from utils.auth import student_required, calculate_position_in_class
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
-import bcrypt
+import bcrypt, re
 
 student_bp = Blueprint('student', __name__, url_prefix='/student')
 
@@ -105,6 +105,8 @@ def dashboard():
 # ==================== AJAX RESULT FETCH ====================
 # routes/student.py — /results route (clean, safe, no slash issues)
 
+import re
+
 @student_bp.route('/results')
 @student_required
 def get_results():
@@ -141,11 +143,15 @@ def get_results():
     grand_total = 0.0
 
     for doc in subject_docs:
+        subject_name = doc.get('subject', '').strip()
+
         ca1 = float(doc.get('ca1', 0))
         ca2 = float(doc.get('ca2', 0))
         exam = float(doc.get('exam', 0))
+
         cum1 = 0.0
         cum2 = 0.0
+        terms_count = 1  # At least current term
 
         if term_name == 'Third':
             # Pull 1st Term
@@ -153,27 +159,29 @@ def get_results():
                 'admission_number': adm_no,
                 'session': session_name,
                 'term': 'First',
-                'subject': doc['subject']
+                'subject': {'$regex': re.escape(subject_name), '$options': 'i'}
             })
             cum1 = float(first.get('total', 0)) if first else 0
+            if first: terms_count += 1
 
             # Pull 2nd Term
             second = mongo.results.find_one({
                 'admission_number': adm_no,
                 'session': session_name,
                 'term': 'Second',
-                'subject': doc['subject']
+                'subject': {'$regex': re.escape(subject_name), '$options': 'i'}
             })
             cum2 = float(second.get('total', 0)) if second else 0
+            if second: terms_count += 1
 
-            subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / 3, 2)
+            subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / terms_count, 2)
         else:
             subject_total = ca1 + ca2 + exam
 
         grand_total += subject_total
 
         subjects.append({
-            'subject': doc.get('subject', 'Unknown'),
+            'subject': subject_name,
             'ca1': ca1,
             'ca2': ca2,
             'exam': exam,

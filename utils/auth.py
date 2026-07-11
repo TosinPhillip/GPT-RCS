@@ -40,66 +40,68 @@ def student_required(f):
     return decorated_function
 
 # ======================== Calculating position
-def calculate_position_in_class(adm_no, session_name, term_name):
-    """
-    Returns the student's position in their class for the given session/term
-    based on overall average across subjects.
-    """
-    # Get student's current class
+def calculate_position_in_class(adm_no, session, term):
+    # Get the student's class for this session/term
     enrollment = mongo.term_enrollments.find_one({
         'admission_number': adm_no,
-        'session': session_name,
-        'term': term_name
+        'session': session,
+        'term': term
     })
-    if not enrollment:
-        return None, None
+    if not enrollment or 'class' not in enrollment:
+        return None, 0
 
-    class_name = enrollment['class']
+    student_class = enrollment['class']
 
-    # Get all students in the same class/term
-    class_students = list(mongo.term_enrollments.find({
-        'class': class_name,
-        'session': session_name,
-        'term': term_name
+    # Get ALL students in the SAME CLASS for this session + term
+    class_enrollments = list(mongo.term_enrollments.find({
+        'session': session,
+        'term': term,
+        'class': student_class
     }))
 
-    if not class_students:
-        return None, len(class_students)
+    if not class_enrollments:
+        return None, 0
 
-    class_size = len(class_students)
+    student_totals = {}
 
-    # Calculate average for each student
-    student_averages = []
-    for st in class_students:
-        st_adm = st['admission_number']
+    for enr in class_enrollments:
+        student_adm = enr['admission_number']
         results = list(mongo.results.find({
-            'admission_number': st_adm,
-            'session': session_name,
-            'term': term_name
+            'admission_number': student_adm,
+            'session': session,
+            'term': term
         }))
 
         if not results:
-            avg = 0.0
+            student_totals[student_adm] = 0
+            continue
+
+        # Calculate adjusted average
+        total = 0.0
+        if term == 'Third':
+            for r in results:
+                ca1 = float(r.get('ca1', 0))
+                ca2 = float(r.get('ca2', 0))
+                exam = float(r.get('exam', 0))
+                cum1 = float(r.get('cumulative1', 0))
+                cum2 = float(r.get('cumulative2', 0))
+                total += (cum1 + cum2 + ca1 + ca2 + exam) / 3
         else:
-            totals = [r.get('total', 0) for r in results]
-            avg = sum(totals) / len(totals)
+            for r in results:
+                total += float(r.get('total', 0))
 
-        student_averages.append((st_adm, avg))
+        adjusted_average = round(total / len(results), 2)
+        student_totals[student_adm] = adjusted_average
 
-    # Sort descending by average
-    sorted_averages = sorted(student_averages, key=lambda x: x[1], reverse=True)
+    # Sort by adjusted average (descending)
+    sorted_students = sorted(student_totals.items(), key=lambda x: x[1], reverse=True)
 
-    # Find position (1-based, ties get same rank, next skips)
+    # Find position
     position = None
-    current_rank = 1
-    prev_avg = None
-
-    for i, (st_adm, avg) in enumerate(sorted_averages, 1):
-        if i > 1 and avg < prev_avg:
-            current_rank = i
-        if st_adm == adm_no:
-            position = current_rank
+    for rank, (student_id, avg) in enumerate(sorted_students, 1):
+        if student_id == adm_no:
+            position = rank
             break
-        prev_avg = avg
 
+    class_size = len(sorted_students)
     return position, class_size
