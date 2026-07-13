@@ -1,7 +1,7 @@
 # routes/student.py — Updated to use student_required from utils/auth.py
 from flask import Blueprint, render_template, request, session as sesh, jsonify, redirect, url_for, flash
 from extensions import mongo
-from utils.auth import student_required, calculate_position_in_class
+from utils.auth import student_required, calculate_position_in_class, calculate_subject_position
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
 import bcrypt, re
 
@@ -117,16 +117,16 @@ def get_results():
     if not session_name or not term_name:
         return jsonify({'error': 'Session and term are required'}), 400
 
-    # Check visibility
+    # Visibility check
     enrollment = mongo.term_enrollments.find_one({
         'admission_number': adm_no,
         'session': session_name,
         'term': term_name
     })
     if not enrollment or not enrollment.get('results_visible', True):
-        return jsonify({'error': 'Results are currently hidden by administration for this term'}), 403
+        return jsonify({'error': 'Results are currently hidden by administration'}), 403
 
-    # Fetch current term results
+    # Fetch subject's results
     subject_docs = list(mongo.results.find({
         'admission_number': adm_no,
         'session': session_name,
@@ -134,64 +134,57 @@ def get_results():
     }).sort('subject', 1))
 
     if not subject_docs:
-        return jsonify({
-            'results': [],
-            'message': f"No results available for {term_name} Term, {session_name} yet."
-        })
+        return jsonify({'results': [], 'message': f"No results for {term_name} Term yet."})
 
     subjects = []
     grand_total = 0.0
 
     for doc in subject_docs:
         subject_name = doc.get('subject', '').strip()
-
         ca1 = float(doc.get('ca1', 0))
         ca2 = float(doc.get('ca2', 0))
         exam = float(doc.get('exam', 0))
 
-        cum1 = 0.0
-        cum2 = 0.0
-        terms_count = 1  # At least current term
-
+        # Cumulative logic for Third Term
         if term_name == 'Third':
-            # Pull 1st Term
             first = mongo.results.find_one({
                 'admission_number': adm_no,
                 'session': session_name,
                 'term': 'First',
                 'subject': {'$regex': re.escape(subject_name), '$options': 'i'}
-            })
-            cum1 = float(first.get('total', 0)) if first else 0
-            if first: terms_count += 1
-
-            # Pull 2nd Term
+            }) or {}
             second = mongo.results.find_one({
                 'admission_number': adm_no,
                 'session': session_name,
                 'term': 'Second',
                 'subject': {'$regex': re.escape(subject_name), '$options': 'i'}
-            })
-            cum2 = float(second.get('total', 0)) if second else 0
-            if second: terms_count += 1
-
-            subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / terms_count, 2)
+            }) or {}
+            cum1 = float(first.get('total', 0))
+            cum2 = float(second.get('total', 0))
+            subject_total = round((cum1 + cum2 + ca1 + ca2 + exam) / 3, 2)
         else:
-            subject_total = ca1 + ca2 + exam
+            subject_total = round(ca1 + ca2 + exam, 2)
 
         grand_total += subject_total
+
+        # Calculate Subject Position
+        subject_position = calculate_subject_position(adm_no, subject_name, session_name, term_name)
 
         subjects.append({
             'subject': subject_name,
             'ca1': ca1,
             'ca2': ca2,
             'exam': exam,
-            'cumulative1': cum1,
-            'cumulative2': cum2,
             'total': subject_total,
-            'position': doc.get('position', '—'),
+            'grade': doc.get('grade', '—'),
+            'remark': doc.get('remark', ''),
+            'position': subject_position
         })
 
-    # Get Class Teacher's Comment
+    # Overall Position
+    overall_position, class_size = calculate_position_in_class(adm_no, session_name, term_name)
+
+    # Teacher Comment
     profile = mongo.student_term_profiles.find_one({
         'admission_number': adm_no,
         'session': session_name,
@@ -199,18 +192,13 @@ def get_results():
     }) or {}
     teacher_comment = profile.get('class_teacher_comment', '')
 
-    # Aggregates
-    average = round(grand_total / len(subjects), 2) if subjects else 0
-    class_average = subject_docs[0].get('class_average') if subject_docs else None
-    overall_position = subject_docs[0].get('overall_position') if subject_docs else None
-
     result_payload = {
         'subjects': subjects,
         'grand_total': round(grand_total, 2),
-        'average': average,
-        'class_average': class_average,
+        'average': round(grand_total / len(subjects), 2) if subjects else 0,
         'overall_position': overall_position,
-        'teacher_comment': teacher_comment,
+        'class_size': class_size,
+        'teacher_comment': teacher_comment
     }
 
     return jsonify({'results': [result_payload]})

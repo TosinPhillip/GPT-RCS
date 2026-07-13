@@ -2,6 +2,7 @@
 from functools import wraps
 from flask import session, redirect, url_for, flash
 from extensions import mongo  # Needed to verify student exists in DB
+import re
 
 def admin_required(f):
     @wraps(f)
@@ -105,3 +106,38 @@ def calculate_position_in_class(adm_no, session, term):
 
     class_size = len(sorted_students)
     return position, class_size
+
+
+import re
+
+def calculate_subject_position(adm_no, subject_name, session_name, term_name):
+    """Calculate position in the **same class** for a specific subject"""
+    # First, get the student's class for this term
+    enrollment = mongo.term_enrollments.find_one({
+        'admission_number': adm_no,
+        'session': session_name,
+        'term': term_name
+    })
+    student_class = enrollment.get('class') if enrollment else None
+
+    if not student_class:
+        return '—'
+
+    pipeline = [
+        {'$match': {
+            'subject': {'$regex': re.escape(subject_name), '$options': 'i'},
+            'session': session_name,
+            'term': term_name,
+            'class': student_class,          # ← Important: Same class only
+            'total': {'$exists': True, '$gt': 0}
+        }},
+        {'$sort': {'total': -1}},
+        {'$project': {'admission_number': 1, 'total': 1}}
+    ]
+
+    ranked = list(mongo.results.aggregate(pipeline))
+    
+    for rank, student in enumerate(ranked, 1):
+        if student['admission_number'] == adm_no:
+            return f"{rank} / {len(ranked)}"   # e.g., "3 / 28"
+    return '—'
