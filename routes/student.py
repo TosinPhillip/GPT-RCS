@@ -198,7 +198,8 @@ def get_results():
         'average': round(grand_total / len(subjects), 2) if subjects else 0,
         'overall_position': overall_position,
         'class_size': class_size,
-        'teacher_comment': teacher_comment
+        'teacher_comment': teacher_comment,
+        'psychomotor': profile.get('psychomotor', {})
     }
 
     return jsonify({'results': [result_payload]})

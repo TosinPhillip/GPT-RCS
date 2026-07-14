@@ -2,7 +2,7 @@
 <html lang="en" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=1200">
     <title>{% block title %}God's Peculiar Treasure School, Ilesa{% endblock %}</title>
     
     <script src="https://cdn.tailwindcss.com"></script>
@@ -10,7 +10,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
     
     <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
+        body { 
+            font-family: 'Inter', system-ui, sans-serif;
+            min-width: 1200px;
+        }
         .heading-font { font-family: 'Playfair Display', sans-serif; }
         
         .nav-link {
@@ -20,13 +23,11 @@
             color: #d97706;
             transform: translateY(-1px);
         }
-        
-        /* Better mobile hero text */
-        @media (max-width: 640px) {
-            .hero-title {
-                font-size: 2.25rem;
-                line-height: 1.1;
-            }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white; }
+            main { padding: 0; margin: 0; }
         }
     </style>
     
@@ -35,8 +36,8 @@
 <body class="bg-zinc-50 text-zinc-900 min-h-screen">
 
     <!-- Navbar -->
-    <nav class="bg-white border-b sticky top-0 z-50 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+    <nav class="bg-white border-b sticky top-0 z-50 shadow-sm no-print">
+        <div class="max-w-7xl mx-auto px-6 py-4">
             <div class="flex justify-between items-center">
                 
                <!-- Logo -->
@@ -45,19 +46,19 @@
                     <!-- School Logo -->
                     <img src="{{ url_for('static', filename='assets/logo.png') }}" 
                          alt="God's Peculiar Treasure School Logo"
-                         class="w-9 h-9 sm:w-11 sm:h-11 object-contain rounded-2xl shadow">
+                         class="w-11 h-11 object-contain rounded-2xl shadow">
                     
                     <div class="leading-tight">
-                        <span class="heading-font text-xl sm:text-2xl font-semibold tracking-tight">
+                        <span class="heading-font text-2xl font-semibold tracking-tight">
                             God's Peculiar Treasure
                         </span>
-                        <p class="text-[10px] sm:text-xs text-amber-600 font-medium tracking-widest">ILESA</p>
+                        <p class="text-xs text-amber-600 font-medium tracking-widest">ILESA</p>
                     </div>
                 </a>
             </div>
 
                 <!-- Desktop Menu -->
-                <div class="hidden md:flex items-center gap-6 lg:gap-8 text-sm font-medium">
+                <div class="flex items-center gap-8 text-sm font-medium">
                     <a href="{{ url_for('student.search') }}" class="nav-link">Check Result</a>
                     <a href="{{ url_for('teacher.login') }}" class="nav-link">Teacher Login</a>
                     <a href="{{ url_for('admin.login') }}" class="nav-link">Admin Login</a>
@@ -67,38 +68,24 @@
                 <div class="flex items-center gap-3">
                     {% if 'role' in sesh %}
                         <a href="{{ url_for(sesh.role + '.dashboard') }}" 
-                           class="hidden sm:flex px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-2xl transition items-center gap-2">
+                           class="flex px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold rounded-2xl transition items-center gap-2">
                             <i class="fas fa-tachometer-alt"></i>
                             <span>Dashboard</span>
                         </a>
                     {% endif %}
-
-                    <button onclick="toggleMobileMenu()" 
-                            class="md:hidden p-2.5 rounded-2xl hover:bg-zinc-100 transition">
-                        <i class="fas fa-bars text-2xl"></i>
-                    </button>
                 </div>
-            </div>
-        </div>
-
-        <!-- Mobile Menu -->
-        <div id="mobile-menu" class="hidden md:hidden bg-white border-t">
-            <div class="px-5 py-8 flex flex-col gap-6 text-base font-medium">
-                <a href="{{ url_for('student.search') }}" class="hover:text-amber-600">Check Result</a>
-                <a href="{{ url_for('teacher.login') }}" class="hover:text-amber-600">Teacher Login</a>
-                <a href="{{ url_for('admin.login') }}" class="hover:text-amber-600">Admin Login</a>
             </div>
         </div>
     </nav>
 
     <!-- Main Content -->
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+    <main class="max-w-7xl mx-auto px-6 py-12">
         {% block content %}{% endblock %}
     </main>
 
     <!-- Footer -->
-    <footer class="bg-zinc-900 text-zinc-400 py-12 sm:py-16 mt-auto">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 text-center">
+    <footer class="bg-zinc-900 text-zinc-400 py-16 mt-auto no-print">
+        <div class="max-w-7xl mx-auto px-6 text-center">
             <p class="heading-font text-2xl text-white mb-3">God's Peculiar Treasure School, Ilesa</p>
             <p class="text-sm opacity-75">Nurturing minds • Building character • Serving God and humanity</p>
             <p class="text-xs mt-6 opacity-60">&copy; <span id="year"></span> All rights reserved.</p>
@@ -107,10 +94,6 @@
 
     <script>
         document.getElementById('year').textContent = new Date().getFullYear();
-
-        function toggleMobileMenu() {
-            document.getElementById('mobile-menu').classList.toggle('hidden');
-        }
     </script>
 
     {% block extra_js %}{% endblock %}
