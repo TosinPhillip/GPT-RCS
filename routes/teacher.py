@@ -210,14 +210,13 @@ def class_teacher_update():
     return jsonify({'status': 'success'})
 
     # New Route: Subject Detail Page (List Students, Enroll, Enter Scores)
-@teacher_bp.route('/subject/<subject>/<class_name>')
+@teacher_bp.route('/subject/<subject>/<class_name>', methods=['GET', 'POST'])
 @teacher_required
 def subject_detail(subject, class_name):
     teacher_email = sesh['teacher_email']
     session_val = sesh['teacher_session']
     term = sesh['teacher_term']
     
-
     # Verify assignment
     assignment = mongo.subject_assignments.find_one({
         'teacher_email': teacher_email,
@@ -245,6 +244,7 @@ def subject_detail(subject, class_name):
         'term': term
     })
     enrolled_student_ids = enrollment_doc['enrolled_admission_numbers'] if enrollment_doc else []
+    
     # All results for this subject/class/term
     results_cursor = mongo.results.find({
         'subject': subject,
@@ -256,31 +256,144 @@ def subject_detail(subject, class_name):
     # Fetch existing scores for pre-fill
     existing_scores = {}
     class_average = 0.0
+    total_scores = 0
+    count = 0
+    
     for r in results_cursor:
         adm_no = r['admission_number']
-        existing_scores[adm_no] = r
-        ca1 = min(max(float(request.form.get(f'ca1_{adm_no}', 0)), 0), 15)
-        ca2 = min(max(float(request.form.get(f'ca2_{adm_no}', 0)), 0), 15)
-        exam = min(max(float(request.form.get(f'exam_{adm_no}', 0)), 0), 70)
+        existing_scores[adm_no] = {
+            'ca1': r.get('ca1', 0),
+            'ca2': r.get('ca2', 0),
+            'exam': r.get('exam', 0),
+            'total': r.get('total', 0)
+        }
         if 'class_average' in r:
             class_average = r['class_average']
 
-    # Bringing in the pevious totals from first and second terms if the active term is third term
+    # Bringing in the previous totals from first and second terms if the active term is third term
     previous_totals = {}
     if term == 'Third':
         for prev_term in ['First', 'Second']:
-            for r in mongo.results.find({
+            prev_results = list(mongo.results.find({
                 'subject': subject,
                 'class': class_name,
                 'session': session_val,
-                'term': prev_term,
-                'admission_number': {'$in': enrolled_student_ids}
-            }):
+                'term': prev_term
+            }))
+            
+            print(f"Found {len(prev_results)} results for {prev_term} term")  # Debug
+            
+            for r in prev_results:
                 adm_no = r['admission_number']
                 if adm_no not in previous_totals:
                     previous_totals[adm_no] = {}
-                previous_totals[adm_no][prev_term.lower()] = r.get('total', 0)
+                
+                total = r.get('total', 0)
+                previous_totals[adm_no][prev_term.lower()] = total
+                print(f"Student {adm_no}: {prev_term} total = {total}")  # Debug
+
+    print(f"Previous totals structure: {previous_totals}")  # Debug
+
+    # Handle POST request (save scores)
+    if request.method == 'POST':
+        enrolled_students = request.form.getlist('enrolled_students')
+        
+        for adm_no in enrolled_students:
+            ca1 = min(max(float(request.form.get(f'ca1_{adm_no}', 0)), 0), 15)
+            ca2 = min(max(float(request.form.get(f'ca2_{adm_no}', 0)), 0), 15)
+            exam = min(max(float(request.form.get(f'exam_{adm_no}', 0)), 0), 70)
             
+            # Calculate total
+            if term == 'Third':
+                # Get previous totals from form or database
+                prev1 = float(request.form.get(f'prev1_{adm_no}', 0))
+                prev2 = float(request.form.get(f'prev2_{adm_no}', 0))
+                
+                # If not provided in form, try to get from database
+                if prev1 == 0 and prev2 == 0:
+                    first = mongo.results.find_one({
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'session': session_val,
+                        'term': 'First'
+                    })
+                    second = mongo.results.find_one({
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'session': session_val,
+                        'term': 'Second'
+                    })
+                    prev1 = first.get('total', 0) if first else 0
+                    prev2 = second.get('total', 0) if second else 0
+                
+                total = round((prev1 + prev2 + ca1 + ca2 + exam) / 3, 2)
+            else:
+                total = round(ca1 + ca2 + exam, 2)
+            
+            # Update or insert result
+            result = mongo.results.find_one({
+                'admission_number': adm_no,
+                'subject': subject,
+                'class': class_name,
+                'session': session_val,
+                'term': term
+            })
+            
+            if result:
+                mongo.results.update_one(
+                    {'_id': result['_id']},
+                    {'$set': {
+                        'ca1': ca1,
+                        'ca2': ca2,
+                        'exam': exam,
+                        'total': total,
+                        'date_updated': datetime.utcnow()
+                    }}
+                )
+            else:
+                # Create new result document
+                new_result = {
+                    'admission_number': adm_no,
+                    'subject': subject,
+                    'class': class_name,
+                    'session': session_val,
+                    'term': term,
+                    'ca1': ca1,
+                    'ca2': ca2,
+                    'exam': exam,
+                    'total': total,
+                    'position': None,
+                    'class_average': None,
+                    'date_created': datetime.utcnow(),
+                    'date_updated': datetime.utcnow()
+                }
+                
+                # Add cumulative fields for Third Term
+                if term == 'Third':
+                    first = mongo.results.find_one({
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'session': session_val,
+                        'term': 'First'
+                    })
+                    second = mongo.results.find_one({
+                        'admission_number': adm_no,
+                        'subject': subject,
+                        'session': session_val,
+                        'term': 'Second'
+                    })
+                    new_result['cumulative1'] = first.get('total', 0) if first else 0
+                    new_result['cumulative2'] = second.get('total', 0) if second else 0
+                
+                mongo.results.insert_one(new_result)
+        
+        flash('Scores saved successfully!', 'success')
+        return redirect(url_for('teacher.subject_detail', subject=subject, class_name=class_name))
+
+    # Convert to JSON for JavaScript
+    import json
+    previous_totals_json = json.dumps(previous_totals) if previous_totals else '{}'
+    existing_scores_json = json.dumps(existing_scores)
 
     return render_template(
         'teacher/subject_detail.html',
@@ -289,10 +402,11 @@ def subject_detail(subject, class_name):
         students=students,
         enrolled_student_ids=enrolled_student_ids,
         existing_scores=existing_scores,
+        existing_scores_json=existing_scores_json,
+        previous_totals_json=previous_totals_json,
         class_average=class_average,
         term=term,
-        session=session_val,
-        previous_totals=previous_totals if term == 'Third' else None
+        session=session_val
     )
 
 # Helper Function: Create Default Result Doc (with auto-pull for Third Term)
@@ -309,6 +423,7 @@ def create_default_result(adm_no, subject, class_name, session_val, term):
         'total': 0,
         'position': None,
         'class_average': None,
+        'date_created': datetime.utcnow(),
         'date_updated': datetime.utcnow()
     }
 

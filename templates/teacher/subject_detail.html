@@ -1,227 +1,305 @@
-{% extends "base.html" %}
+{% extends 'base.html' %}
 {% block content %}
 
-<div class="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
     <div class="bg-white rounded-3xl shadow-xl overflow-hidden">
-
-        <!-- Header -->
+        <!-- Page Header -->
         <div class="bg-gradient-to-br from-amber-600 to-yellow-600 text-white p-8 sm:p-12 text-center">
-            <h1 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
+            <h2 class="text-3xl sm:text-4xl font-bold heading-font tracking-tight">
                 {{ subject }} - {{ class_name }}
-            </h1>
-            <p class="text-amber-100 mt-3 text-lg sm:text-xl">
+            </h2>
+            <p class="text-amber-100 mt-3 text-lg">
                 {{ session }} • {{ term }} Term
             </p>
+            {% if class_average > 0 %}
+            <p class="text-amber-100 mt-2 text-sm">
+                Class Average: {{ "%.2f"|format(class_average) }}
+            </p>
+            {% endif %}
         </div>
 
-        <div class="p-6 sm:p-10 space-y-12">
-
-            <!-- Enrollment Section -->
-            <div class="bg-zinc-50 rounded-3xl p-6 sm:p-8">
-                <h3 class="text-2xl font-bold text-gray-800 mb-6">Enroll Students for {{ subject }}</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto pr-2" id="enrollment-list">
-                    {% for student in students %}
-                        {% set adm_no = student.admission_number %}
-                        {% set is_enrolled = adm_no in enrolled_student_ids %}
-                        <label class="flex items-center p-5 bg-white rounded-2xl border hover:border-amber-200 cursor-pointer transition-all hover:shadow">
+        <div class="p-6 sm:p-10">
+            <form method="POST" class="space-y-10" id="scoreForm">
+                <!-- Student Enrollment Toggle -->
+                <div class="bg-zinc-50 border border-gray-100 rounded-3xl p-6 sm:p-8">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="font-semibold text-lg text-gray-800">
+                            Select Students
+                        </h3>
+                        <button type="button" 
+                                onclick="toggleAllStudents()"
+                                class="text-sm text-amber-600 hover:text-amber-700 font-medium">
+                            Select All
+                        </button>
+                    </div>
+                    
+                    {% if students %}
+                    <div class="enrollment-list max-h-72 overflow-y-auto space-y-2 pr-2">
+                        {% for student in students %}
+                        <label class="flex items-center p-4 bg-white rounded-2xl hover:bg-amber-50 cursor-pointer transition border border-transparent hover:border-amber-200">
                             <input type="checkbox"
-                                   class="enroll-checkbox h-5 w-5 text-amber-600 rounded focus:ring-amber-500"
-                                   value="{{ adm_no }}"
-                                   {% if is_enrolled %}checked{% endif %}>
-                            <span class="ml-4 text-base sm:text-lg">
-                                <strong>{{ student.name }}</strong>
-                                <span class="text-gray-500 ml-2">({{ adm_no }})</span>
-                                {% if is_enrolled %}<span class="ml-4 text-emerald-600 font-medium">✓ Enrolled</span>{% endif %}
+                                   name="enrolled_students"
+                                   value="{{ student.admission_number }}"
+                                   {% if student.admission_number in enrolled_student_ids %}checked{% endif %}
+                                   class="student-checkbox h-5 w-5 text-amber-600 focus:ring-amber-500 border-gray-300 rounded"
+                                   onchange="updateScoresTable()">
+                            <span class="ml-4 text-gray-800">
+                                {{ student.name }} <span class="text-gray-500 text-sm">({{ student.admission_number }})</span>
                             </span>
                         </label>
-                    {% endfor %}
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-gray-500 text-center py-8">No students enrolled in this class.</p>
+                    {% endif %}
                 </div>
-            </div>
 
-            <!-- Scoresheet -->
-            <div id="results-container" class="{% if not enrolled_student_ids %}hidden{% endif %}">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
-                    <h3 class="text-2xl font-bold text-gray-800 heading-font">Scoresheet</h3>
-                    <button id="toggle-edit"
-                            class="px-8 py-3.5 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-2xl transition flex items-center gap-2 shadow">
-                        <span>✏️ Edit Mode</span>
+                <!-- Scores Table -->
+                <div id="scores-table" class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b bg-gray-50">
+                        <h3 class="font-semibold text-lg text-gray-800">Enter Scores</h3>
+                        <p class="text-sm text-gray-500 mt-1">Max: CA1=15, CA2=15, Exam=70</p>
+                    </div>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="bg-gray-50 border-b">
+                                <tr>
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600">Student</th>
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600">CA1</th>
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600">CA2</th>
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600">Exam</th>
+                                    {% if term == 'Third' %}
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600 cum-header">1st Term</th>
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600 cum-header">2nd Term</th>
+                                    {% endif %}
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600">
+                                        {% if term == 'Third' %}3rd Term Total{% else %}Total{% endif %}
+                                    </th>
+                                    {% if term == 'Third' %}
+                                    <th class="px-6 py-5 text-left text-sm font-medium text-gray-600 cum-header">Average</th>
+                                    {% endif %}
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100" id="scores-tbody">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button type="submit"
+                            class="w-full sm:w-auto px-12 py-5 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-lg rounded-2xl transition transform active:scale-[0.98]">
+                        Save All Scores
+                    </button>
+                    <button type="button"
+                            onclick="resetScores()"
+                            class="w-full sm:w-auto px-12 py-5 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold text-lg rounded-2xl transition">
+                        Reset Scores
                     </button>
                 </div>
-
-                <div class="overflow-x-auto rounded-3xl border border-gray-100">
-                    <table class="min-w-full">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-5 text-left font-medium text-gray-700">Student</th>
-                                <th class="px-6 py-5 text-center font-medium text-gray-700">CA1 (15)</th>
-                                <th class="px-6 py-5 text-center font-medium text-gray-700">CA2 (15)</th>
-                                <th class="px-6 py-5 text-center font-medium text-gray-700">Exam (70)</th>
-                                {% if term == 'Third' %}
-                                    <th class="px-6 py-5 text-center font-medium text-gray-700 bg-amber-50">1st Term</th>
-                                    <th class="px-6 py-5 text-center font-medium text-gray-700 bg-amber-50">2nd Term</th>
-                                {% endif %}
-                                <th class="px-6 py-5 text-center font-bold text-amber-700">Overall Total</th>
-                            </tr>
-                        </thead>
-                        <tbody id="scores-tbody" class="bg-white divide-y divide-gray-100"></tbody>
-                    </table>
-                </div>
-
-                <div class="text-center mt-10">
-                    <button id="save-all"
-                            class="hidden w-full sm:w-auto px-12 py-5 bg-emerald-600 hover:bg-emerald-700 text-white text-lg font-semibold rounded-2xl shadow-lg transition">
-                        💾 Save All Scores
-                    </button>
-                </div>
-            </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
-    let enrolledIds = {{ enrolled_student_ids | tojson | safe }};
-    const allStudents = {{ students | tojson | safe }};
-    const existingScores = {{ existing_scores | tojson | safe }};
+    // Get the data from the template
     const term = '{{ term }}';
-    const subject = '{{ subject }}';
-    const className = '{{ class_name }}';
-    const sessionVal = '{{ session }}';
+    const isThirdTerm = term === 'Third';
+    
+    // Parse the JSON data - using the safe JSON strings
+    let previousTotals = {};
+    let existingScores = {};
+    
+    try {
+        previousTotals = JSON.parse('{{ previous_totals_json|safe }}');
+    } catch(e) {
+        console.error('Error parsing previous_totals:', e);
+        previousTotals = {};
+    }
+    
+    try {
+        existingScores = JSON.parse('{{ existing_scores_json|safe }}');
+    } catch(e) {
+        console.error('Error parsing existing_scores:', e);
+        existingScores = {};
+    }
 
-    const tbody = document.getElementById('scores-tbody');
-    const resultsContainer = document.getElementById('results-container');
-    const toggleEditBtn = document.getElementById('toggle-edit');
-    const saveBtn = document.getElementById('save-all');
-    let editMode = false;
+    console.log('Term:', term);
+    console.log('Previous Totals:', previousTotals);
+    console.log('Existing Scores:', existingScores);
+    console.log('Is Third Term:', isThirdTerm);
 
-    function renderScoresTable() {
+    function updateScoresTable() {
+        const tbody = document.getElementById('scores-tbody');
         tbody.innerHTML = '';
-        if (enrolledIds.length === 0) {
-            resultsContainer.classList.add('hidden');
+
+        const checkboxes = document.querySelectorAll('.student-checkbox:checked');
+        
+        if (checkboxes.length === 0) {
+            const emptyRow = document.createElement('tr');
+            emptyRow.innerHTML = `<td colspan="${isThirdTerm ? 8 : 5}" class="px-6 py-10 text-center text-gray-500">
+                Please select at least one student to enter scores
+            </td>`;
+            tbody.appendChild(emptyRow);
             return;
         }
-        resultsContainer.classList.remove('hidden');
 
-        enrolledIds.forEach(admNo => {
-            const student = allStudents.find(s => s.admission_number === admNo);
-            if (!student) return;
-
-            const score = existingScores[admNo] || {};
-            const ca1 = parseFloat(score.ca1) || 0;
-            const ca2 = parseFloat(score.ca2) || 0;
-            const exam = parseFloat(score.exam) || 0;
-            const cum1 = parseFloat(score.cumulative1) || 0;
-            const cum2 = parseFloat(score.cumulative2) || 0;
-
-            let total = ca1 + ca2 + exam;
-            if (term === 'Third') {
-                total = Math.round((cum1 + cum2 + total) / 3 * 100) / 100;
+        checkboxes.forEach(checkbox => {
+            const admNo = checkbox.value;
+            const studentName = checkbox.parentElement.querySelector('span').textContent.trim().split(' (')[0];
+            
+            // Get existing scores if any
+            const scores = existingScores[admNo] || {};
+            const ca1 = scores.ca1 || 0;
+            const ca2 = scores.ca2 || 0;
+            const exam = scores.exam || 0;
+            
+            // Get previous totals for third term
+            let prev1 = 0;
+            let prev2 = 0;
+            if (isThirdTerm) {
+                const studentPrev = previousTotals[admNo] || {};
+                prev1 = studentPrev.first || 0;
+                prev2 = studentPrev.second || 0;
+                console.log(`Student ${admNo}: First=${prev1}, Second=${prev2}`);
             }
 
             const row = document.createElement('tr');
+            row.className = "hover:bg-amber-50 transition";
             row.dataset.admNo = admNo;
-            row.innerHTML = `
-                <td class="px-6 py-5 font-medium">${student.name} <span class="text-gray-500">(${admNo})</span></td>
-                <td class="px-6 py-5 text-center view-mode">${ca1}</td>
-                <td class="px-6 py-5 text-center view-mode">${ca2}</td>
-                <td class="px-6 py-5 text-center view-mode">${exam}</td>
-                ${term === 'Third' ? `
-                <td class="px-6 py-5 text-center view-mode bg-amber-50">${cum1}</td>
-                <td class="px-6 py-5 text-center view-mode bg-amber-50">${cum2}</td>` : ''}
-                <td class="px-6 py-5 text-center view-mode font-bold text-amber-700">${total.toFixed(2)}</td>
-
-                <!-- Edit Mode -->
-                <td class="px-6 py-5 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border border-gray-200 rounded-xl px-3 py-2 text-center focus:border-amber-500" data-field="ca1" value="${ca1}" min="0" max="15">
+            
+            let html = `
+                <td class="px-6 py-5 font-medium">${studentName}</td>
+                <td class="px-6 py-5">
+                    <input type="number" name="ca1_${admNo}" min="0" max="15" value="${ca1}" 
+                           class="score-input w-20 sm:w-24 p-3 border border-gray-200 rounded-xl text-center focus:border-amber-500 focus:ring-2 focus:ring-amber-200" 
+                           oninput="calculateRow(this)" required>
                 </td>
-                <td class="px-6 py-5 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border border-gray-200 rounded-xl px-3 py-2 text-center focus:border-amber-500" data-field="ca2" value="${ca2}" min="0" max="15">
+                <td class="px-6 py-5">
+                    <input type="number" name="ca2_${admNo}" min="0" max="15" value="${ca2}" 
+                           class="score-input w-20 sm:w-24 p-3 border border-gray-200 rounded-xl text-center focus:border-amber-500 focus:ring-2 focus:ring-amber-200" 
+                           oninput="calculateRow(this)" required>
                 </td>
-                <td class="px-6 py-5 text-center edit-mode hidden">
-                    <input type="number" class="score-input w-20 border border-gray-200 rounded-xl px-3 py-2 text-center focus:border-amber-500" data-field="exam" value="${exam}" min="0" max="70">
-                </td>
-                ${term === 'Third' ? `
-                <td class="px-6 py-5 text-center edit-mode hidden bg-amber-50"><input type="number" class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center bg-gray-100" value="${cum1}" readonly></td>
-                <td class="px-6 py-5 text-center edit-mode hidden bg-amber-50"><input type="number" class="w-20 border border-gray-200 rounded-xl px-3 py-2 text-center bg-gray-100" value="${cum2}" readonly></td>` : ''}
-                <td class="px-6 py-5 text-center edit-mode hidden font-bold text-amber-700">
-                    <span class="total-display">${total.toFixed(2)}</span>
+                <td class="px-6 py-5">
+                    <input type="number" name="exam_${admNo}" min="0" max="70" value="${exam}" 
+                           class="score-input w-20 sm:w-24 p-3 border border-gray-200 rounded-xl text-center focus:border-amber-500 focus:ring-2 focus:ring-amber-200" 
+                           oninput="calculateRow(this)" required>
                 </td>
             `;
-
-            const inputs = row.querySelectorAll('.score-input');
-            inputs.forEach(input => input.addEventListener('input', () => updateRowTotal(row)));
-
+            
+            if (isThirdTerm) {
+                html += `
+                    <td class="px-6 py-5 cum-col bg-amber-50">
+                        <input type="number" name="prev1_${admNo}" value="${prev1}" 
+                               class="w-20 sm:w-24 p-3 border border-gray-200 rounded-xl text-center bg-gray-100" 
+                               readonly disabled>
+                        <span class="text-xs ${prev1 > 0 ? 'text-green-600' : 'text-gray-400'} block mt-1">
+                            ${prev1 > 0 ? prev1 : 'No score'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-5 cum-col bg-amber-50">
+                        <input type="number" name="prev2_${admNo}" value="${prev2}" 
+                               class="w-20 sm:w-24 p-3 border border-gray-200 rounded-xl text-center bg-gray-100" 
+                               readonly disabled>
+                        <span class="text-xs ${prev2 > 0 ? 'text-green-600' : 'text-gray-400'} block mt-1">
+                            ${prev2 > 0 ? prev2 : 'No score'}
+                        </span>
+                    </td>
+                `;
+            }
+            
+            const total = ca1 + ca2 + exam;
+            const average = isThirdTerm ? (prev1 + prev2 + total) / 3 : 0;
+            
+            html += `
+                <td class="px-6 py-5 font-bold text-amber-600">
+                    <span class="total-display">${total.toFixed(2)}</span>
+                </td>
+                ${isThirdTerm ? `<td class="px-6 py-5 font-bold text-blue-600 cum-col"><span class="average-display">${average.toFixed(2)}</span></td>` : ''}
+            `;
+            
+            row.innerHTML = html;
             tbody.appendChild(row);
         });
     }
 
-    function updateRowTotal(row) {
-        const ca1 = parseFloat(row.querySelector('[data-field="ca1"]')?.value) || 0;
-        const ca2 = parseFloat(row.querySelector('[data-field="ca2"]')?.value) || 0;
-        const exam = parseFloat(row.querySelector('[data-field="exam"]')?.value) || 0;
-        let total = ca1 + ca2 + exam;
-        if (term === 'Third') total = Math.round((total) / 3 * 100) / 100;
-        row.querySelector('.total-display').textContent = total.toFixed(2);
-    }
-
-    function toggleEditMode() {
-        editMode = !editMode;
-        toggleEditBtn.innerHTML = editMode ? `<span>👁️ View Mode</span>` : `<span>✏️ Edit Mode</span>`;
-        document.querySelectorAll('.view-mode').forEach(el => el.classList.toggle('hidden', editMode));
-        document.querySelectorAll('.edit-mode').forEach(el => el.classList.toggle('hidden', !editMode));
-        saveBtn.classList.toggle('hidden', !editMode);
-    }
-
-    // Listen for enrollment changes and refresh scoresheet automatically
-    document.getElementById('enrollment-list').addEventListener('change', (e) => {
-        if (e.target.classList.contains('enroll-checkbox')) {
-            enrolledIds = Array.from(document.querySelectorAll('.enroll-checkbox:checked'))
-                               .map(cb => cb.value);
-            renderScoresTable();
+    function calculateRow(input) {
+        const row = input.closest('tr');
+        if (!row) return;
+        
+        const ca1 = parseFloat(row.querySelector('[name^="ca1_"]')?.value) || 0;
+        const ca2 = parseFloat(row.querySelector('[name^="ca2_"]')?.value) || 0;
+        const exam = parseFloat(row.querySelector('[name^="exam_"]')?.value) || 0;
+        const currentTotal = ca1 + ca2 + exam;
+        
+        // Update total display
+        const totalSpan = row.querySelector('.total-display');
+        if (totalSpan) {
+            totalSpan.textContent = currentTotal.toFixed(2);
         }
-    });
-
-    // Toggle Edit Mode
-    toggleEditBtn.addEventListener('click', toggleEditMode);
-
-    // Save functionality (unchanged)
-    saveBtn.addEventListener('click', async () => {
-        const rows = tbody.querySelectorAll('tr');
-        const updates = [];
-        rows.forEach(row => {
-            const admNo = row.dataset.admNo;
-            const ca1 = parseFloat(row.querySelector('[data-field="ca1"]')?.value) || 0;
-            const ca2 = parseFloat(row.querySelector('[data-field="ca2"]')?.value) || 0;
-            const exam = parseFloat(row.querySelector('[data-field="exam"]')?.value) || 0;
-            updates.push({ adm_no: admNo, ca1, ca2, exam });
-        });
-
-        try {
-            const res = await fetch('/teacher/save_subject_scores', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    subject: subject,
-                    class: className,
-                    term: term,
-                    session: sessionVal,
-                    scores: updates
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert('✅ Scores saved successfully!');
-                location.reload();
-            } else {
-                alert('Failed to save scores');
+        
+        // Update average for third term
+        if (isThirdTerm) {
+            const prev1 = parseFloat(row.querySelector('[name^="prev1_"]')?.value) || 0;
+            const prev2 = parseFloat(row.querySelector('[name^="prev2_"]')?.value) || 0;
+            const average = (prev1 + prev2 + currentTotal) / 3;
+            
+            const avgSpan = row.querySelector('.average-display');
+            if (avgSpan) {
+                avgSpan.textContent = average.toFixed(2);
             }
-        } catch (e) {
-            alert('Network error. Please try again.');
         }
-    });
+    }
 
-    // Initial render
-    renderScoresTable();
+    function toggleAllStudents() {
+        const checkboxes = document.querySelectorAll('.student-checkbox');
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => cb.checked = !allChecked);
+        updateScoresTable();
+    }
+
+    function resetScores() {
+        if (!confirm('Are you sure you want to reset all scores to 0?')) return;
+        
+        document.querySelectorAll('.score-input').forEach(input => {
+            input.value = 0;
+            calculateRow(input);
+        });
+    }
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', function() {
+        console.log('Page loaded, initializing scores table...');
+        console.log('Previous Totals keys:', Object.keys(previousTotals));
+        updateScoresTable();
+    });
 </script>
+
+<style>
+    .score-input:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+    }
+    
+    .score-input::-webkit-inner-spin-button,
+    .score-input::-webkit-outer-spin-button {
+        opacity: 1;
+        height: 30px;
+    }
+    
+    .cum-col {
+        background-color: #fffbeb;
+    }
+    
+    @media (max-width: 640px) {
+        .score-input {
+            width: 60px !important;
+            padding: 8px !important;
+        }
+    }
+</style>
 
 {% endblock %}
