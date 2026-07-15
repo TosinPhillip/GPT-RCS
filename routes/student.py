@@ -199,7 +199,13 @@ def get_results():
         'overall_position': overall_position,
         'class_size': class_size,
         'teacher_comment': teacher_comment,
-        'psychomotor': profile.get('psychomotor', {})
+        'psychomotor': profile.get('psychomotor', {}),
+        'term': term_name,  # Add term to the response
+        'session': session_name  # Add session to the response
     }
+
+    # Debug: Log the response
+    print(f"Results for {adm_no}: {len(subjects)} subjects found")
+    print(f"Grand Total: {result_payload['grand_total']}")
 
     return jsonify({'results': [result_payload]})

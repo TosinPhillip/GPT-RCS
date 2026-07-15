@@ -8,7 +8,7 @@
     </div>
 
     <!-- Controls -->
-    <div style="margin-bottom: 30px; display: flex; gap: 15px; align-items: flex-end;">
+    <div style="margin-bottom: 30px; display: flex; gap: 15px; align-items: flex-end; flex-wrap: wrap;">
         <div>
             <label style="display: block; font-size: 14px; font-weight: 500; color: #666; margin-bottom: 8px;">Session</label>
             <select id="session-select" style="border: 1px solid #ddd; border-radius: 8px; padding: 10px 15px; font-size: 14px;">
@@ -25,60 +25,27 @@
                 {% endfor %}
             </select>
         </div>
-        <button onclick="loadResults()" style="background: #b45309; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; hover: background #92400e;">
+        <button onclick="loadResults()" style="background: #b45309; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
             Load Results
         </button>
     </div>
 
     <!-- Results Container -->
-    <div id="results-container" style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 20px; min-height: 200px;"></div>
+    <div id="results-container" style="background: white; border: 1px solid #ddd; border-radius: 12px; padding: 20px; min-height: 200px;">
+        <p style="text-align: center; color: #999;">Select session and term, then click Load Results</p>
+    </div>
 
     <!-- Download Button -->
     <div style="text-align: center; margin-top: 30px;">
-        <button onclick="downloadResultPDF()" style="background: linear-gradient(135deg, #b45309 0%, #ca8a04 100%); color: white; border: none; padding: 15px 30px; border-radius: 20px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+        <button id="download-btn" onclick="downloadResultPDF()" style="background: linear-gradient(135deg, #b45309 0%, #ca8a04 100%); color: white; border: none; padding: 15px 30px; border-radius: 20px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
             📄 Download Full Report Card (PDF)
         </button>
     </div>
 </div>
 
-<!-- PDF Template (Hidden) -->
-<div id="pdf-template" style="display: none; width: 210mm; padding: 20mm; background: white; font-family: Arial, sans-serif;">
-    <div id="pdf-header" style="display: flex; gap: 20px; margin-bottom: 30px; border-bottom: 2px solid #b45309; padding-bottom: 20px;">
-        <div style="flex-shrink: 0;">
-            <img src="{{ url_for('static', filename='assets/logo.png') }}" alt="Logo" style="width: 80px; height: 80px; object-fit: contain;">
-        </div>
-        <div style="flex-grow: 1;">
-            <h2 style="margin: 0; color: #b45309; font-size: 20px; font-weight: bold;">God's Peculiar Treasure School</h2>
-            <p style="margin: 5px 0; color: #ca8a04; font-size: 14px;">Ilesa, Osun State</p>
-            <p style="margin: 5px 0; color: #666; font-size: 12px;">Academic Result Portal</p>
-        </div>
-    </div>
-
-    <div id="pdf-info" style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 12px;">
-        <div>
-            <strong>Student Name:</strong><br>
-            <span id="pdf-name">{{ student_name }}</span>
-        </div>
-        <div>
-            <strong>Student ID:</strong><br>
-            <span id="pdf-id">{{ student_id if student_id else 'N/A' }}</span>
-        </div>
-        <div>
-            <strong>Class:</strong><br>
-            <span id="pdf-class">{{ student_class if student_class else 'N/A' }}</span>
-        </div>
-        <div>
-            <strong>Session:</strong><br>
-            <span id="pdf-session">{{ selected_session }}</span>
-        </div>
-    </div>
-
-    <div id="pdf-results" style="width: 100%;"></div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-    let currentResults = [];
+    let currentResults = null;
     let currentSession = '';
     let currentTerm = '';
 
@@ -101,10 +68,15 @@
                 return;
             }
 
+            if (!data.results || data.results.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #999;">No results available.</p>';
+                return;
+            }
+
             currentResults = data.results[0] || {};
             renderResults(currentResults);
         } catch (err) {
-            console.error(err);
+            console.error('Error loading results:', err);
             container.innerHTML = '<p style="text-align: center; color: red;">Failed to load results.</p>';
         }
     }
@@ -118,7 +90,7 @@
         }
 
         let html = `
-            <h2 style="margin-top: 0; margin-bottom: 20px;">` + (data.term || 'Term') + ` Results</h2>
+            <h2 style="margin-top: 0; margin-bottom: 20px;">${data.term || currentTerm || 'Term'} Results</h2>
             <p style="text-align: right; color: #b45309; font-weight: bold; margin-bottom: 20px;">
                 Position: ${data.overall_position || '—'} / ${data.class_size || '—'}
             </p>
@@ -153,6 +125,15 @@
 
         html += `</tbody></table>`;
 
+        if (data.grand_total !== undefined) {
+            html += `
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; padding: 15px; background: #fef3c7; border-radius: 8px; border: 1px solid #b45309;">
+                    <div><strong>Grand Total:</strong> ${data.grand_total}</div>
+                    <div><strong>Average:</strong> ${data.average || 0}</div>
+                </div>
+            `;
+        }
+
         if (data.psychomotor && Object.keys(data.psychomotor).length > 0) {
             html += `<h3 style="margin-top: 20px; margin-bottom: 10px;">Behavioral Ratings</h3>`;
             html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">`;
@@ -180,112 +161,199 @@
     }
 
     function downloadResultPDF() {
-        if (!currentResults || !currentResults.subjects) {
+        if (!currentResults || !currentResults.subjects || currentResults.subjects.length === 0) {
             alert('Please load results first.');
             return;
         }
 
-        // Populate PDF template
-        document.getElementById('pdf-session').textContent = currentSession;
-        
-        // Build PDF results table
-        let pdfHtml = `
-            <h2 style="margin-bottom: 15px;">` + (currentResults.term || 'Term') + ` Results</h2>
-            <p style="text-align: right; color: #b45309; margin-bottom: 15px;">
-                Position: ${currentResults.overall_position || '—'} / ${currentResults.class_size || '—'}
-            </p>
-            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px;">
-                <thead>
-                    <tr style="background: #fef3c7; border: 1px solid #b45309;">
-                        <th style="padding: 6px; text-align: left; border: 1px solid #b45309;">Subject</th>
-                        <th style="padding: 6px; text-align: center; border: 1px solid #b45309;">CA1</th>
-                        <th style="padding: 6px; text-align: center; border: 1px solid #b45309;">CA2</th>
-                        <th style="padding: 6px; text-align: center; border: 1px solid #b45309;">Exam</th>
-                        <th style="padding: 6px; text-align: center; border: 1px solid #b45309;">Total</th>
-                        <th style="padding: 6px; text-align: center; border: 1px solid #b45309;">Grade</th>
-                        <th style="padding: 6px; text-align: center; border: 1px solid #b45309;">Pos</th>
-                    </tr>
-                </thead>
-                <tbody>
-        `;
+        const downloadBtn = document.getElementById('download-btn');
+        const originalText = downloadBtn.innerHTML;
+        downloadBtn.innerHTML = '⏳ Generating PDF...';
+        downloadBtn.disabled = true;
 
-        currentResults.subjects.forEach(sub => {
-            pdfHtml += `
-                <tr style="border: 1px solid #ddd;">
-                    <td style="padding: 6px; border: 1px solid #ddd;">${sub.subject}</td>
-                    <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${sub.ca1}</td>
-                    <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${sub.ca2}</td>
-                    <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${sub.exam}</td>
-                    <td style="padding: 6px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${sub.total}</td>
-                    <td style="padding: 6px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${sub.grade}</td>
-                    <td style="padding: 6px; text-align: center; border: 1px solid #ddd;">${sub.position}</td>
-                </tr>
-            `;
-        });
+        try {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF('p', 'mm', 'a4');
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            let y = 20;
 
-        pdfHtml += `</tbody></table>`;
+            // Helper function to add text with wrapping
+            function addText(text, x, y, size = 10, style = 'normal', align = 'left') {
+                doc.setFontSize(size);
+                doc.setFont('helvetica', style);
+                doc.text(text, x, y, { align: align });
+                return y + (size / 2.5);
+            }
 
-        if (currentResults.psychomotor && Object.keys(currentResults.psychomotor).length > 0) {
-            pdfHtml += `<h3 style="font-size: 12px; margin-top: 15px; margin-bottom: 10px;">Behavioral Ratings</h3>`;
-            pdfHtml += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 10px;">`;
-            Object.entries(currentResults.psychomotor).forEach(([skill, rating]) => {
-                pdfHtml += `
-                    <div style="background: #fef3c7; padding: 8px; border: 1px solid #b45309; border-radius: 4px;">
-                        <strong style="text-transform: capitalize;">${skill.replace('_', ' ')}</strong>: ${rating}/5
-                    </div>
-                `;
+            // Header - School Name
+            doc.setFontSize(18);
+            doc.setFont('helvetica', 'bold');
+            doc.text('God\'s Peculiar Treasure School', pageWidth / 2, y, { align: 'center' });
+            y += 8;
+            
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'normal');
+            doc.text('Ilesa, Osun State', pageWidth / 2, y, { align: 'center' });
+            y += 8;
+            
+            doc.setFontSize(10);
+            doc.text('Academic Result Portal', pageWidth / 2, y, { align: 'center' });
+            y += 12;
+
+            // Student Info
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Student Information', 20, y);
+            y += 6;
+            
+            doc.setFont('helvetica', 'normal');
+            const studentInfo = [
+                ['Student Name:', '{{ student_name }}'],
+                ['Student ID:', '{{ student_id if student_id else 'N/A' }}'],
+                ['Class:', '{{ student_class if student_class else 'N/A' }}'],
+                ['Session:', currentSession],
+                ['Term:', currentTerm + ' Term']
+            ];
+            
+            studentInfo.forEach(info => {
+                doc.text(info[0], 20, y);
+                doc.text(info[1], 80, y);
+                y += 6;
             });
-            pdfHtml += `</div>`;
+            y += 4;
+
+            // Results Table
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Results', 20, y);
+            y += 6;
+
+            // Table Headers
+            const headers = ['Subject', 'CA1', 'CA2', 'Exam', 'Total', 'Grade', 'Pos'];
+            const colWidths = [50, 20, 20, 20, 20, 20, 15];
+            let xPos = 20;
+
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'bold');
+            
+            // Draw header background
+            doc.setFillColor(254, 243, 199);
+            doc.rect(xPos, y - 4, pageWidth - 40, 8, 'F');
+            
+            headers.forEach((header, i) => {
+                doc.text(header, xPos, y + 2);
+                xPos += colWidths[i];
+            });
+            y += 8;
+
+            // Table Rows
+            doc.setFont('helvetica', 'normal');
+            currentResults.subjects.forEach((sub, index) => {
+                // Check if we need a new page
+                if (y > pageHeight - 20) {
+                    doc.addPage();
+                    y = 20;
+                }
+
+                const rowData = [
+                    sub.subject || '',
+                    sub.ca1 || 0,
+                    sub.ca2 || 0,
+                    sub.exam || 0,
+                    sub.total || 0,
+                    sub.grade || '—',
+                    sub.position || '—'
+                ];
+                
+                xPos = 20;
+                rowData.forEach((data, i) => {
+                    doc.text(String(data), xPos, y + 2);
+                    xPos += colWidths[i];
+                });
+                y += 6;
+            });
+
+            y += 4;
+
+            // Grand Total and Average
+            if (currentResults.grand_total !== undefined) {
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Grand Total: ${currentResults.grand_total}`, 20, y);
+                y += 6;
+                doc.text(`Average: ${currentResults.average || 0}`, 20, y);
+                y += 8;
+            }
+
+            // Psychomotor Ratings
+            if (currentResults.psychomotor && Object.keys(currentResults.psychomotor).length > 0) {
+                // Check if we need a new page
+                if (y > pageHeight - 60) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text('Behavioral Ratings:', 20, y);
+                y += 6;
+                
+                doc.setFont('helvetica', 'normal');
+                Object.entries(currentResults.psychomotor).forEach(([skill, rating]) => {
+                    const skillName = skill.replace('_', ' ').toUpperCase();
+                    doc.text(`${skillName}: ${rating}/5`, 25, y);
+                    y += 6;
+                });
+                y += 4;
+            }
+
+            // Teacher Comment
+            if (currentResults.teacher_comment) {
+                // Check if we need a new page
+                if (y > pageHeight - 40) {
+                    doc.addPage();
+                    y = 20;
+                }
+                
+                doc.setFont('helvetica', 'bold');
+                doc.text('Teacher\'s Comment:', 20, y);
+                y += 6;
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                const commentLines = doc.splitTextToSize(currentResults.teacher_comment, pageWidth - 40);
+                commentLines.forEach(line => {
+                    doc.text(line, 20, y);
+                    y += 5;
+                });
+            }
+
+            // Footer
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'italic');
+            doc.text('Generated on: ' + new Date().toLocaleDateString(), pageWidth / 2, pageHeight - 10, { align: 'center' });
+
+            // Save the PDF
+            doc.save(`Report_Card_${currentSession}_${currentTerm}.pdf`);
+            
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
+
+        } catch (error) {
+            console.error('Error generating PDF:', error);
+            alert('Error generating PDF. Please try again.');
+            downloadBtn.innerHTML = originalText;
+            downloadBtn.disabled = false;
         }
-
-        if (currentResults.teacher_comment) {
-            pdfHtml += `
-                <div style="margin-top: 15px; padding: 10px; border-left: 2px solid #b45309; background: #f9fafb; font-size: 10px;">
-                    <strong>Teacher's Comment:</strong> <em>${currentResults.teacher_comment}</em>
-                </div>
-            `;
-        }
-
-        document.getElementById('pdf-results').innerHTML = pdfHtml;
-
-        const element = document.getElementById('pdf-template');
-        const opt = {
-            margin: 10,
-            filename: `Report_Card_${currentSession}_${currentTerm}.pdf`,
-            image: { type: 'png', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-
-        html2pdf().set(opt).from(element).save();
     }
 
-    document.addEventListener('DOMContentLoaded', loadResults);
+    // Load results on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const sessionSelect = document.getElementById('session-select');
+        const termSelect = document.getElementById('term-select');
+        
+        if (sessionSelect.value && termSelect.value) {
+            loadResults();
+        }
+    });
 </script>
-
-<style>
-    @media print {
-        body * { display: none !important; }
-        #printable-content, #printable-content * { display: revert !important; }
-        #pdf-header { display: block !important; }
-        
-        body {
-            margin: 0;
-            padding: 0;
-            background: white;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        
-        tr { page-break-inside: avoid; }
-        
-        th, td {
-            border: 1px solid #d1d5db;
-            padding: 8px;
-        }
-    }
-</style>
 {% endblock %}
