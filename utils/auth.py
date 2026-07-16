@@ -3,6 +3,15 @@ from functools import wraps
 from flask import session, redirect, url_for, flash
 from extensions import mongo  # Needed to verify student exists in DB
 import re
+import bcrypt
+
+
+
+def hash_password(password: str) -> str:
+    """Hash a plaintext password using bcrypt (secure with salt)."""
+    # Generate salt and hash - always use this for new passwords
+    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+    return hashed.decode('utf-8')  # Store as string in MongoDB
 
 def admin_required(f):
     @wraps(f)
@@ -141,3 +150,10 @@ def calculate_subject_position(adm_no, subject_name, session_name, term_name):
         if student['admission_number'] == adm_no:
             return f"{rank} / {len(ranked)}"   # e.g., "3 / 28"
     return '—'
+
+def check_password(stored_hash: str, provided_password: str) -> bool:
+    """Verify a password against its stored bcrypt hash."""
+    return bcrypt.checkpw(
+        provided_password.encode('utf-8'), 
+        stored_hash.encode('utf-8')
+    )

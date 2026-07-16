@@ -1,7 +1,7 @@
 # routes/admin.py
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session as sesh, jsonify
 from extensions import mongo
-from utils.auth import admin_required
+from utils.auth import admin_required, hash_password
 from utils.sessions import get_current_context, get_active_enrollments, find_student_by_admission, get_active_session
 from bson import ObjectId
 from werkzeug.utils import secure_filename
@@ -359,14 +359,14 @@ def register_students():
                     flash('Admission number already exists', 'danger')
                     return redirect(url_for('admin.register_students'))
 
-                dob = datetime.strptime(request.form['date_of_birth'], '%Y-%m-%d').date()
+                # dob = datetime.strptime(request.form['date_of_birth'], '%Y-%m-%d').date()
 
                 student_data = {
                     'name': request.form['name'].strip().title(),
                     'class': request.form['class'].strip().upper(),
                     'gender': request.form['gender'].strip().title(),
                     'admission_number': adm_no,
-                    'date_of_birth': dob,
+                    # 'date_of_birth': dob,
                     'password': hash_password(request.form['password'].strip()),
                     'results_visible': request.form.get('results_visible') == 'on',
                     'date_registered': datetime.utcnow()
