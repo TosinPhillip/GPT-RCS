@@ -8,7 +8,8 @@
         <form method="POST" action="{{ url_for('admin.save_student_results') }}">
             <input type="hidden" name="adm_no" value="{{ student.admission_number }}">
 
-            <div class="overflow-x-auto">
+            <!-- Results Table -->
+            <div class="overflow-x-auto mb-12">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-indigo-100">
                         <tr>
@@ -40,10 +41,31 @@
                     </tbody>
                 </table>
             </div>
+                        <!-- After the results table -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-12">
+                <!-- Teacher's Comment -->
+                <div>
+                    <label class="block text-lg font-semibold text-gray-700 mb-3">Class Teacher's Comment</label>
+                    <textarea name="teacher_comment" rows="5" class="w-full border border-gray-300 rounded-2xl px-6 py-4">
+                        {{ teacher_comment | default('') }}
+                    </textarea>
+                </div>
+            
+                <!-- Principal's Comment -->
+                <div>
+                    <label class="block text-lg font-semibold text-gray-700 mb-3">Principal's Comment</label>
+                    <textarea name="principal_comment" rows="5" class="w-full border border-gray-300 rounded-2xl px-6 py-4">
+                        {{ principal_comment | default('') }}
+                    </textarea>
+                </div>
+            </div>
 
-            <div class="text-center mt-10">
-                <button type="submit" class="px-12 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
-                    Save All Results
+            
+
+            <div class="text-center">
+                <button type="submit" 
+                        class="px-12 py-5 bg-indigo-700 hover:bg-indigo-600 text-white text-xl font-bold rounded-xl shadow-lg transition">
+                    Save All Results & Comment
                 </button>
             </div>
         </form>

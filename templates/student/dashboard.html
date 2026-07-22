@@ -17,6 +17,12 @@
                 {% endfor %}
             </select>
         </div>
+            <a href="{{ url_for('main.books') }}" 
+           style="background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-size: 14px; 
+                font-weight: 600; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; 
+                margin-left: auto;">
+            📚 Books by Class
+        </a>
         <div>
             <label style="display: block; font-size: 14px; font-weight: 500; color: #666; margin-bottom: 8px;">Term</label>
             <select id="term-select" style="border: 1px solid #ddd; border-radius: 8px; padding: 10px 15px; font-size: 14px;">
@@ -156,7 +162,14 @@
                 </div>
             `;
         }
-
+        if (data.principal_comment) {
+            html += `
+                <div style="margin-top: 20px; padding: 15px; border-left: 3px solid #b45309; background: #f9fafb;">
+                    <strong>Principal's Comment</strong><br>
+                    <em style="color: #666;">${data.principal_comment}</em>
+                </div>
+            `;
+        }
         container.innerHTML = html;
     }
 

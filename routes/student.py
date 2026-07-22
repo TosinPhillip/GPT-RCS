@@ -47,6 +47,17 @@ def logout():
     sesh.clear()
     return redirect(url_for('student.search'))
 
+# ==========books========
+@student_bp.route('/books')
+def books():
+    # Fetch from MongoDB (admin can update via dashboard later)
+    books_data = list(mongo.books.find()) or [
+        {"class": "JSS1", "subjects": ["Mathematics", "English", "Basic Science"]},
+        {"class": "JSS2", "subjects": ["Mathematics", "English", "Social Studies"]},
+        # ... more classes
+    ]
+    return render_template('books.html', books=books_data)
+
 # ==================== DASHBOARD / RESULT VIEWER ====================
 @student_bp.route('/dashboard')
 @student_required
@@ -200,6 +211,7 @@ def get_results():
         'class_size': class_size,
         'teacher_comment': teacher_comment,
         'psychomotor': profile.get('psychomotor', {}),
+        'principal_comment':profile.get('principal_comment', ''),
         'term': term_name,  # Add term to the response
         'session': session_name  # Add session to the response
     }

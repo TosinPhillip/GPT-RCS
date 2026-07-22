@@ -731,10 +731,11 @@ def class_students(class_name):
 @admin_bp.route('/save_student_results', methods=['POST'])
 @admin_required
 def save_student_results():
-    adm_no = request.form['adm_no']
+    adm_no = request.form.get('adm_no')
     current_session = get_current_context()['session_name']
     current_term = get_current_context()['term']
 
+    # === Save Subject Results (unchanged) ===
     for key in request.form:
         if key.startswith('ca1_'):
             subject = key.split('_')[1]
@@ -742,44 +743,84 @@ def save_student_results():
             ca2 = float(request.form.get(f'ca2_{subject}', 0))
             exam = float(request.form.get(f'exam_{subject}', 0))
             total = ca1 + ca2 + exam
+
             if current_term == 'Third':
                 cum1 = float(request.form.get(f'cum1_{subject}', 0))
                 cum2 = float(request.form.get(f'cum2_{subject}', 0))
                 total = round((cum1 + cum2 + total) / 3, 2)
 
             mongo.results.update_one(
-                {'admission_number': adm_no, 'subject': subject, 'session': current_session, 'term': current_term},
+                {
+                    'admission_number': adm_no, 
+                    'subject': subject, 
+                    'session': current_session, 
+                    'term': current_term
+                },
                 {'$set': {'ca1': ca1, 'ca2': ca2, 'exam': exam, 'total': total}},
                 upsert=True
             )
 
-    flash('Student results updated successfully!', 'success')
+    # === Save Teacher & Principal Comments in student_term_profiles ===
+    teacher_comment = request.form.get('teacher_comment', '').strip()
+    principal_comment = request.form.get('principal_comment', '').strip()
+
+    mongo.student_term_profiles.update_one(
+        {
+            'admission_number': adm_no,
+            'session': current_session,
+            'term': current_term
+        },
+        {'$set': {
+            'class_teacher_comment': teacher_comment,
+            'principal_comment': principal_comment,
+            'date_updated': datetime.utcnow()
+        }},
+        upsert=True
+    )
+
+    flash('Student results and comments updated successfully!', 'success')
     return redirect(url_for('admin.edit_student', adm_no=adm_no))
+
+
+
 
 @admin_bp.route('/edit_student/<regex:adm_no>')
 @admin_required
 def edit_student(adm_no):
     current_session = get_current_context()['session_name']
     current_term = get_current_context()['term']
-
+    
     student = mongo.students.find_one({'admission_number': adm_no})
     enrollment = mongo.term_enrollments.find_one({'admission_number': adm_no})
-
-    # All results for this student
+    
     results = list(mongo.results.find({
         'admission_number': adm_no,
         'session': current_session,
         'term': current_term
     }).sort('subject', 1))
 
+    # Load comments from student_term_profiles
+    profile = mongo.student_term_profiles.find_one({
+        'admission_number': adm_no,
+        'session': current_session,
+        'term': current_term
+    }) or {}
+
+    teacher_comment = profile.get('class_teacher_comment', '')
+    principal_comment = profile.get('principal_comment', '')
+
     return render_template(
         'admin/edit_student.html',
         student=student,
         enrollment=enrollment,
         results=results,
-        current_term=current_term
+        current_term=current_term,
+        teacher_comment=teacher_comment,
+        principal_comment=principal_comment
     )
 
+
+    
 @admin_bp.route('/classes')
 @admin_required
 def classes_overview():

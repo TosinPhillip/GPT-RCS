@@ -62,8 +62,16 @@
                         </div>
                         {% endfor %}
                     </div>
-                </div>
-
+                    </div>
+    <!-- Primary Teacher's Comment -->
+                    <div class="border border-gray-100 rounded-3xl p-8 bg-white">
+                        <h3 class="text-2xl font-semibold mb-6 text-gray-800">Primary Teacher's Comment</h3>
+                        <textarea 
+                            name="primary_teacher_comment" 
+                            rows="5"
+                            class="w-full border border-gray-200 rounded-3xl px-6 py-5 text-lg focus:border-amber-500 focus:ring-amber-100 transition"
+                            placeholder="Write your comment for the student here...">{{ existing_primary_comment | default('') }}</textarea>
+                    </div>
                 <div class="text-center pt-8">
                     <button type="button" id="save-btn"
                             class="w-full sm:w-auto px-16 py-5 bg-amber-600 hover:bg-amber-700 text-white text-xl font-semibold rounded-3xl shadow-lg transition transform active:scale-95">
@@ -118,11 +126,12 @@
             {% endfor %}
 
             const payload = {
-                admission_number: "{{ student.admission_number }}",
-                class_name: "{{ class_name }}",
-                scores: scores,
-                psychomotor: psychomotor
-            };
+        admission_number: "{{ student.admission_number }}",
+        class_name: "{{ class_name }}",
+        scores: scores,
+        psychomotor: psychomotor,
+        primary_teacher_comment: formData.get("class_teacher_comment") || ""
+    };
 
             console.log("Payload:", payload);
 

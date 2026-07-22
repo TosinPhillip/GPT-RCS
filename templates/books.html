@@ -1,0 +1,21 @@
+<div id="books-container">
+    {% for class_name, subjects in books.items() %}
+    <div class="book-card" data-class="{{ class_name | lower }}">
+        <div style="background: linear-gradient(135deg, #b45309 0%, #ca8a04 100%); color: white; padding: 20px;">
+            <h2>{{ class_name }}</h2>
+        </div>
+        <div style="padding: 20px;">
+            {% for subject, booklist in subjects.items() %}
+            <div style="margin-bottom: 20px;">
+                <strong>{{ subject }}</strong>
+                <ul>
+                    {% for book in booklist %}
+                    <li>{{ book }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>

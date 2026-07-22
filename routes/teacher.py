@@ -1022,6 +1022,7 @@ def save_primary_scores():
         class_name = data.get('class_name')
         scores = data.get('scores', {})
         psychomotor = data.get('psychomotor', {})
+        primary_comment = data.get('class_teacher_comment', '').strip()
 
         session_val = sesh.get('teacher_session')
         term = sesh.get('teacher_term')
@@ -1087,7 +1088,7 @@ def save_primary_scores():
             try:
                 mongo.student_term_profiles.update_one(
                     {'admission_number': adm_no, 'session': session_val, 'term': term},
-                    {'$set': {'psychomotor': psychomotor, 'class': class_name, 'date_updated': datetime.utcnow()}},
+                    {'$set': {'psychomotor': psychomotor, 'class_teacher_comment': primary_comment, 'class': class_name, 'date_updated': datetime.utcnow()}},
                     upsert=True
                 )
                 print("✅ Psychomotor saved")
@@ -1144,7 +1145,7 @@ def primary_student_entry(class_name, adm_no):
     teacher_email = sesh['teacher_email']
     session_val = sesh.get('teacher_session')
     term = sesh.get('teacher_term')
-
+    
     # Security Check
     assignment = mongo.class_assignments.find_one({
         'teacher_email': teacher_email,
@@ -1161,7 +1162,7 @@ def primary_student_entry(class_name, adm_no):
     if not student_data:
         flash('Student not found.', 'error')
         return redirect(url_for('teacher.primary_class_students', class_name=class_name))
-    
+   
     # Verify enrollment
     enrollment = mongo.term_enrollments.find_one({
         'admission_number': adm_no,
@@ -1176,10 +1177,10 @@ def primary_student_entry(class_name, adm_no):
     # Get Subjects
     class_subjects_doc = mongo.primary_class_subjects.find_one({'class_name': class_name})
     subjects = class_subjects_doc.get('subjects', []) if class_subjects_doc else ["Mathematics", "English", "Basic Science"]
-
+    
     psychomotor_skills = ["Punctuality", "Neatness", "Honesty", "Leadership", "Politeness", "Teamwork", "Initiative", "Reliability"]
 
-    # FIX: Fetch from the CORRECT collection - 'results' not 'primary_results'
+    # Fetch existing scores
     existing_scores = {}
     for subject in subjects:
         result = mongo.results.find_one({
@@ -1195,14 +1196,16 @@ def primary_student_entry(class_name, adm_no):
                 'ca2': result.get('ca2', 0),
                 'exam': result.get('exam', 0)
             }
-    
-    # Fetch psychomotor from student_term_profiles
+
+    # Fetch existing profile (psychomotor + primary teacher comment)
     profile = mongo.student_term_profiles.find_one({
         'admission_number': adm_no,
         'session': session_val,
         'term': term
-    })
-    existing_psychomotor = profile.get('psychomotor', {}) if profile else {}
+    }) or {}
+
+    existing_psychomotor = profile.get('psychomotor', {})
+    existing_primary_comment = profile.get('primary_teacher_comment', '')
 
     return render_template('teacher/primary_student_entry.html',
                            student=student_data,
@@ -1212,9 +1215,10 @@ def primary_student_entry(class_name, adm_no):
                            term=term,
                            session=session_val,
                            existing_scores=existing_scores,
-                           existing_psychomotor=existing_psychomotor)
+                           existing_psychomotor=existing_psychomotor,
+                           existing_primary_comment=existing_primary_comment)
 
-
+    
 
 @teacher_bp.route('/primary_broadsheet/<class_name>')
 @teacher_required
