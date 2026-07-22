@@ -363,7 +363,7 @@ def subject_detail(subject, class_name):
                     'exam': exam,
                     'total': total,
                     'position': None,
-                    'class_average': None,
+                    'class_average': 0,
                     'date_created': datetime.utcnow(),
                     'date_updated': datetime.utcnow()
                 }
@@ -422,7 +422,7 @@ def create_default_result(adm_no, subject, class_name, session_val, term):
         'exam': 0,
         'total': 0,
         'position': None,
-        'class_average': None,
+        'class_average': 0,
         'date_created': datetime.utcnow(),
         'date_updated': datetime.utcnow()
     }

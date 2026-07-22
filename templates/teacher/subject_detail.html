@@ -11,7 +11,7 @@
             <p class="text-amber-100 mt-3 text-lg">
                 {{ session }} • {{ term }} Term
             </p>
-            {% if class_average > 0 %}
+            {% if class_average is not none and class_average > 0 %}
             <p class="text-amber-100 mt-2 text-sm">
                 Class Average: {{ "%.2f"|format(class_average) }}
             </p>
